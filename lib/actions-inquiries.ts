@@ -81,8 +81,11 @@ export async function getInquiry(id: string) {
       expand: "author,class,assignment",
     });
     return { success: true, data: inquiry };
-  } catch (error) {
-    console.error("Error fetching inquiry:", error);
+  } catch (error: any) {
+    // Suppress 404 errors as they are expected when resource is not found
+    if (error?.status !== 404) {
+      console.error("Error fetching inquiry:", error);
+    }
     return { success: false, error: "Consulta no encontrada" };
   }
 }
