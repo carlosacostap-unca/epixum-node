@@ -16,7 +16,6 @@ export async function createServerClient() {
   }
 
   const serverPb = new PocketBase(url);
-  serverPb.autoCancellation(false);
   
   if (token) {
     serverPb.authStore.loadFromCookie(`pb_auth=${token}`);

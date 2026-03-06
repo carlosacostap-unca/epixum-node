@@ -31,10 +31,12 @@ export async function getUserReview(sprintId: string, userId: string) {
 
 export async function getSprints() {
   const pb = await createServerClient();
-  const records = await pb.collection('sprints').getFullList<Sprint>({
+  // Use getList instead of getFullList to be gentler on API limits
+  // Fetch only first 50 sprints which is enough for most cases
+  const result = await pb.collection('sprints').getList<Sprint>(1, 50, {
     sort: 'created',
   });
-  return records;
+  return result.items;
 }
 
 export async function getUsers() {
