@@ -19,9 +19,9 @@ export default async function SprintsPage() {
 
   try {
     sprints = await getSprints();
-  } catch (e) {
+  } catch (e: any) {
     console.error("Error fetching sprints:", e);
-    error = "Error al conectar con la base de datos. Verifique la conexión.";
+    error = `Error al conectar con la base de datos: ${e?.message || String(e)}`;
   }
 
   const isTeacher = user.role === 'docente' || user.role === 'admin';

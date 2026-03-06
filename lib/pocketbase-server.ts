@@ -8,12 +8,15 @@ export async function createServerClient() {
   const cookieStore = await cookies();
   const token = cookieStore.get('pb_auth')?.value;
 
-  const url = process.env.NEXT_PUBLIC_POCKETBASE_URL;
+  // Access via bracket notation to prevent build-time inlining and ensure runtime access
+  const url = process.env['NEXT_PUBLIC_POCKETBASE_URL'];
+  
   if (!url) {
     console.error("CRITICAL ERROR: NEXT_PUBLIC_POCKETBASE_URL is not set in the server environment.");
   }
 
   const serverPb = new PocketBase(url);
+  serverPb.autoCancellation(false);
   
   if (token) {
     serverPb.authStore.loadFromCookie(`pb_auth=${token}`);
