@@ -10,16 +10,20 @@ export const dynamic = 'force-dynamic';
 
 export default async function SprintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let sprint: Sprint;
+  let sprint: Sprint | null = null;
   let classes: Class[] = [];
   let assignments: Assignment[] = [];
   const user = await getCurrentUser();
   
   try {
     sprint = await getSprint(id);
+    if (!sprint) {
+      notFound();
+    }
     classes = await getClasses(id);
     assignments = await getAssignments(id);
   } catch (error) {
+    console.error("Error fetching sprint details:", error);
     notFound();
   }
 
