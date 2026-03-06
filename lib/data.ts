@@ -106,7 +106,6 @@ export const getSprints = cache(async () => {
         return await getSprintsCached(token);
     } catch (error) {
         console.error('Error fetching sprints:', error);
-        // Fallback to direct fetch if cache fails? No, just throw or return empty
         throw error;
     }
 });
@@ -163,10 +162,98 @@ export const getStudentTeam = cache(async (studentId: string) => {
 export const getSprint = cache(async (id: string) => {
   const pb = await createServerClient();
   try {
-    const record = await pb.collection('sprints').getOne<Sprint>(id);
+    const record = await pb.collection('sprints').getOne<Sprint>(id, {
+        expand: 'classes',
+    });
     return record;
   } catch (error) {
     console.error('Error fetching sprint:', error);
     return null;
   }
 });
+
+export async function getAllClasses() {
+    const pb = await createServerClient();
+    const records = await pb.collection('classes').getFullList<Class>({
+        sort: 'created',
+        expand: 'sprint',
+    });
+    return records;
+}
+
+export async function getClasses(sprintId: string) {
+    const pb = await createServerClient();
+    const records = await pb.collection('classes').getFullList<Class>({
+        filter: `sprint = "${sprintId}"`,
+        sort: 'created',
+    });
+    return records;
+}
+
+export async function getClass(id: string) {
+  const pb = await createServerClient();
+  const record = await pb.collection('classes').getOne<Class>(id);
+  return record;
+}
+
+export async function getAllAssignments() {
+  const pb = await createServerClient();
+  const records = await pb.collection('assignments').getFullList<Assignment>({
+      sort: 'created',
+      expand: 'sprint',
+  });
+  return records;
+}
+
+export async function getAssignments(sprintId: string) {
+  const pb = await createServerClient();
+  const records = await pb.collection('assignments').getFullList<Assignment>({
+      filter: `sprint = "${sprintId}"`,
+      sort: 'created',
+  });
+  return records;
+}
+
+export async function getAssignment(id: string) {
+  const pb = await createServerClient();
+  const record = await pb.collection('assignments').getOne<Assignment>(id);
+  return record;
+}
+
+export async function getLinks(parentId: string, parentType: 'class' | 'assignment' = 'class') {
+  const pb = await createServerClient();
+  const records = await pb.collection('links').getFullList<Link>({
+      filter: `${parentType} = "${parentId}"`,
+      sort: 'created',
+  });
+  return records;
+}
+
+export async function getDeliveries(assignmentId: string) {
+  const pb = await createServerClient();
+  try {
+     const records = await pb.collection('deliveries').getFullList<Delivery>({
+         filter: `assignment = "${assignmentId}"`,
+         sort: '-created',
+         expand: 'student',
+     });
+     
+     return records;
+   } catch (error) {
+     console.error('Error fetching deliveries:', error);
+     return [];
+   }
+}
+
+export async function getUserDelivery(assignmentId: string, userId: string) {
+  const pb = await createServerClient();
+  try {
+    const record = await pb.collection('deliveries').getFirstListItem<Delivery>(
+        `assignment = "${assignmentId}" && student = "${userId}"`
+    );
+    return record;
+  } catch (error) {
+    // It's normal to not have a delivery yet
+    return null;
+  }
+}
