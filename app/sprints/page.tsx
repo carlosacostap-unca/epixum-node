@@ -15,10 +15,13 @@ export default async function SprintsPage() {
   }
 
   let sprints: Sprint[] = [];
+  let error = null;
+
   try {
     sprints = await getSprints();
   } catch (e) {
     console.error("Error fetching sprints:", e);
+    error = "Error al conectar con la base de datos. Verifique la conexión.";
   }
 
   const isTeacher = user.role === 'docente' || user.role === 'admin';
@@ -35,7 +38,14 @@ export default async function SprintsPage() {
         <h1 className="text-3xl font-bold">{isTeacher ? 'Gestionar Sprints' : 'Mis Sprints'}</h1>
       </div>
 
-      {sprints.length === 0 && !isTeacher ? (
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+
+      {sprints.length === 0 && !isTeacher && !error ? (
         <div className="text-center py-10">
           <p className="text-xl text-zinc-500">No hay sprints disponibles todavía.</p>
         </div>

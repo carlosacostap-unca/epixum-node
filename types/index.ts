@@ -12,6 +12,11 @@ export interface User extends BaseModel {
   username: string;
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  dni?: string;
+  birthDate?: string;
+  phone?: string;
   avatar?: string;
   role: UserRole;
 }

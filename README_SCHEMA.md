@@ -12,6 +12,11 @@ Para que la aplicación funcione correctamente, necesitas crear las siguientes c
 ### Users Collection (`users`)
 
 - **role**: Select (options: "admin", "docente", "estudiante").
+- **firstName**: Text (Required)
+- **lastName**: Text (Required)
+- **dni**: Text
+- **birthDate**: Date
+- **phone**: Text
   - Esto permitirá identificar los permisos de cada usuario.
 
 ### API Rules (Reglas de Acceso)

@@ -82,7 +82,7 @@ export default function Header() {
             </Link>
           )}
           {user && (
-             <div className="flex items-center gap-2 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full">
+             <Link href="/profile" className="flex items-center gap-2 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
                {user.avatar && (
                  <img 
                    src={`${process.env.NEXT_PUBLIC_POCKETBASE_URL}/api/files/_pb_users_auth_/${user.id}/${user.avatar}`} 
@@ -94,7 +94,7 @@ export default function Header() {
                 {user.name} 
                 <span className="ml-1 opacity-60">({user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Estudiante'})</span>
               </span>
-             </div>
+             </Link>
           )}
           <button
             onClick={handleLogout}
