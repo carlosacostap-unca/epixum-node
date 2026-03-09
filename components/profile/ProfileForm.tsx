@@ -9,6 +9,40 @@ export default function ProfileForm({ user }: { user: User }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Controlled inputs state
+  const [firstName, setFirstName] = useState(user.firstName || "");
+  const [lastName, setLastName] = useState(user.lastName || "");
+  const [dni, setDni] = useState(user.dni || "");
+  const [phone, setPhone] = useState(user.phone || "");
+
+  // Formatting helpers
+  const formatName = (value: string) => {
+    return value
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const val = e.target.value;
+    // Allow letters, spaces, and accents (áéíóúñÁÉÍÓÚÑ)
+    if (/^[a-zA-Z\s\u00C0-\u00FF]*$/.test(val)) {
+      setter(val);
+    }
+  };
+
+  const handleNameBlur = (e: React.FocusEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    setter(formatName(e.target.value));
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const val = e.target.value;
+    if (/^\d*$/.test(val)) {
+      setter(val);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -17,11 +51,11 @@ export default function ProfileForm({ user }: { user: User }) {
 
     const formData = new FormData(e.currentTarget);
     const data = {
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      dni: formData.get("dni") as string,
+      firstName: firstName,
+      lastName: lastName,
+      dni: dni,
       birthDate: formData.get("birthDate") as string,
-      phone: formData.get("phone") as string,
+      phone: phone,
     };
 
     const result = await updateUserProfile(user.id, data);
@@ -60,7 +94,10 @@ export default function ProfileForm({ user }: { user: User }) {
             type="text"
             name="firstName"
             id="firstName"
-            defaultValue={user.firstName || ""}
+            value={firstName}
+            onChange={(e) => handleNameChange(e, setFirstName)}
+            onBlur={(e) => handleNameBlur(e, setFirstName)}
+            placeholder="Ej: Juan Pablo"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-zinc-800 dark:border-zinc-600 dark:text-white p-2 border"
           />
         </div>
@@ -72,7 +109,10 @@ export default function ProfileForm({ user }: { user: User }) {
             type="text"
             name="lastName"
             id="lastName"
-            defaultValue={user.lastName || ""}
+            value={lastName}
+            onChange={(e) => handleNameChange(e, setLastName)}
+            onBlur={(e) => handleNameBlur(e, setLastName)}
+            placeholder="Ej: Pérez García"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-zinc-800 dark:border-zinc-600 dark:text-white p-2 border"
           />
         </div>
@@ -84,7 +124,9 @@ export default function ProfileForm({ user }: { user: User }) {
             type="text"
             name="dni"
             id="dni"
-            defaultValue={user.dni || ""}
+            value={dni}
+            onChange={(e) => handleNumberChange(e, setDni)}
+            placeholder="Solo números"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-zinc-800 dark:border-zinc-600 dark:text-white p-2 border"
           />
         </div>
@@ -96,7 +138,9 @@ export default function ProfileForm({ user }: { user: User }) {
             type="tel"
             name="phone"
             id="phone"
-            defaultValue={user.phone || ""}
+            value={phone}
+            onChange={(e) => handleNumberChange(e, setPhone)}
+            placeholder="Solo números"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-zinc-800 dark:border-zinc-600 dark:text-white p-2 border"
           />
         </div>
