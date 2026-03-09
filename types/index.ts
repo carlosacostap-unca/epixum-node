@@ -99,16 +99,46 @@ export interface Message extends BaseModel {
 }
 
 export interface Review extends BaseModel {
-  sprint: string; // Relation to Sprint ID
-  teacher: string; // Relation to User ID (teacher)
-  student?: string; // Relation to User ID (student), optional (null if available)
-  startTime: string; // ISO Date string
-  endTime: string; // ISO Date string
-  private_note?: string; // Note only for teachers
-  public_note?: string;  // Feedback visible to the student
+  sprint: string;
+  student: string;
+  teacher: string;
+  startTime: string;
+  endTime: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  feedback?: string;
+  private_note?: string;
+  public_note?: string;
   expand?: {
     sprint?: Sprint;
+    student?: User;
     teacher?: User;
+  };
+}
+
+export interface StudentSurvey extends BaseModel {
+  sprint: string; // Relation to Sprint ID
+  student: string; // Relation to User ID
+  status: 'completed' | 'incomplete_deliveries';
+  
+  // Fields for students with complete deliveries
+  feelings?: string;
+  feedback?: string;
+  suggestions?: string;
+  
+  // Fields for students with incomplete deliveries
+  reason?: string;
+  experience?: string;
+  futurePlan?: 'continue' | 'retake' | 'contact_teacher';
+  delayFactors?: string;
+  attitudeReflection?: string;
+  learningExperience?: string;
+  futureStrategies?: string;
+  actionPlan?: string;
+  personalCommitment?: string;
+  additionalComments?: string;
+  
+  expand?: {
+    sprint?: Sprint;
     student?: User;
   };
 }
