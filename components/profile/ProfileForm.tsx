@@ -2,16 +2,18 @@
 
 import { User } from "@/types";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { updateUserProfile } from "@/lib/actions-users";
 
 export default function ProfileForm({ user }: { user: User }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   // Controlled inputs state
-  const [firstName, setFirstName] = useState(user.firstName || "");
-  const [lastName, setLastName] = useState(user.lastName || "");
+  const [firstName, setFirstName] = useState(user.firstName || user.name?.split(' ')[0] || "");
+  const [lastName, setLastName] = useState(user.lastName || user.name?.split(' ').slice(1).join(' ') || "");
   const [dni, setDni] = useState(user.dni || "");
   const [phone, setPhone] = useState(user.phone || "");
 
@@ -63,6 +65,9 @@ export default function ProfileForm({ user }: { user: User }) {
     setLoading(false);
     if (result.success) {
       setSuccess("Perfil actualizado correctamente");
+      setTimeout(() => {
+        router.back();
+      }, 1500);
     } else {
       setError(result.error || "Error al actualizar perfil");
     }
