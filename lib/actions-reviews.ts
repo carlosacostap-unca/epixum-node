@@ -178,7 +178,13 @@ export async function getReview(reviewId: string) {
     }
 }
 
-export async function updateReviewNotes(reviewId: string, privateNote: string, publicNote: string) {
+export async function updateReviewNotes(
+    reviewId: string, 
+    privateNote: string, 
+    publicNote: string,
+    zoomLink?: string,
+    roomNumber?: string
+) {
     const pb = await createServerClient();
     const user = pb.authStore.model;
 
@@ -190,10 +196,15 @@ export async function updateReviewNotes(reviewId: string, privateNote: string, p
         // We need to fetch the review to get the sprint ID for revalidation
         const review = await pb.collection('reviews').getOne<Review>(reviewId);
         
-        await pb.collection('reviews').update(reviewId, {
+        const data: any = {
             private_note: privateNote,
             public_note: publicNote
-        });
+        };
+
+        if (zoomLink !== undefined) data.zoomLink = zoomLink;
+        if (roomNumber !== undefined) data.roomNumber = roomNumber;
+
+        await pb.collection('reviews').update(reviewId, data);
         
         revalidatePath(`/reviews/${review.sprint}`);
         // Also revalidate the specific detail page if we were using it, but here we just need to update data

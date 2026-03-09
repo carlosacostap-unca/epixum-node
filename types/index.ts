@@ -108,6 +108,8 @@ export interface Review extends BaseModel {
   feedback?: string;
   private_note?: string;
   public_note?: string;
+  zoomLink?: string;
+  roomNumber?: string;
   expand?: {
     sprint?: Sprint;
     student?: User;
