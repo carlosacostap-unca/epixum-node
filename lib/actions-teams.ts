@@ -22,7 +22,7 @@ export async function createTeam(formData: FormData) {
 
   try {
     await pb.collection('teams').create({ name, members: [] });
-    revalidatePath('/teams');
+    revalidatePath('/teams', 'layout');
     return { success: true };
   } catch (error: any) {
     console.error('Failed to create team:', error);
@@ -42,7 +42,7 @@ export async function deleteTeam(teamId: string) {
 
   try {
     await pb.collection('teams').delete(teamId);
-    revalidatePath('/teams');
+    revalidatePath('/teams', 'layout');
     return { success: true };
   } catch (error) {
     console.error('Failed to delete team:', error);
@@ -60,7 +60,7 @@ export async function updateTeamName(teamId: string, name: string) {
 
   try {
     await pb.collection('teams').update(teamId, { name });
-    revalidatePath('/teams');
+    revalidatePath('/teams', 'layout');
     return { success: true };
   } catch (error) {
     console.error('Failed to update team name:', error);
@@ -105,7 +105,7 @@ export async function moveStudentToTeam(studentId: string, targetTeamId: string 
       }
     }
 
-    revalidatePath('/teams');
+    revalidatePath('/teams', 'layout');
     return { success: true };
   } catch (error) {
     console.error('Failed to move student:', error);
