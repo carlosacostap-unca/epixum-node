@@ -26,6 +26,16 @@ export default function ProfileForm({ user }: { user: User }) {
       .join(' ');
   };
 
+  // Helper to format date for input type="date" using local time
+  const formatDateForInput = (isoString: string | undefined) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
     const val = e.target.value;
     // Allow letters, spaces, and accents (áéíóúñÁÉÍÓÚÑ)
@@ -52,11 +62,21 @@ export default function ProfileForm({ user }: { user: User }) {
     setSuccess(null);
 
     const formData = new FormData(e.currentTarget);
+    
+    // Handle birthDate with local time
+    const birthDateInput = formData.get("birthDate") as string;
+    let birthDateToSend = "";
+    if (birthDateInput) {
+      // Create date as Local Time (append T00:00:00 to treat as local)
+      // This ensures we send the correct absolute timestamp for the user's start of day
+      birthDateToSend = new Date(`${birthDateInput}T00:00:00`).toISOString();
+    }
+
     const data = {
       firstName: firstName,
       lastName: lastName,
       dni: dni,
-      birthDate: formData.get("birthDate") as string,
+      birthDate: birthDateToSend,
       phone: phone,
     };
 
@@ -74,7 +94,7 @@ export default function ProfileForm({ user }: { user: User }) {
   };
 
   // Helper to format date for input type="date"
-  const formattedBirthDate = user.birthDate ? new Date(user.birthDate).toISOString().split('T')[0] : "";
+  const formattedBirthDate = formatDateForInput(user.birthDate);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
