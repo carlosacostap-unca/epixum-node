@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type PocketBase from "pocketbase";
 import type { ReactNode } from "react";
 import WeeklyCohortHome from "@/components/cohorts/WeeklyCohortHome";
@@ -17,7 +17,8 @@ export default async function Home() {
   const pb = await createServerClient();
   if (user.role === "estudiante") return <StudentHome user={user} cohort={cohort} pb={pb} canSwitchCohorts={cohorts.length > 1} />;
   if (user.role === "admin") return <AdminHome user={user} cohort={cohort} pb={pb} cohortCount={cohorts.length} />;
-  return <TeacherHome user={user} cohort={cohort} pb={pb} />;
+  if (user.role === "docente") return <TeacherHome user={user} cohort={cohort} pb={pb} />;
+  notFound();
 }
 
 async function StudentHome({ user, cohort, pb, canSwitchCohorts }: { user: User; cohort: Cohort | null; pb: PocketBase; canSwitchCohorts: boolean }) {

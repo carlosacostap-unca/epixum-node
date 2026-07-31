@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireCohortAccess } from "@/lib/cohorts/access";
+import { requireCohortStaffAccess } from "@/lib/cohorts/access";
 import { createAdminServerClient } from "@/lib/pocketbase-server";
 import { assessmentCategoryInsights, assessmentQuestionInsights, matchesSearch, percentage } from "@/lib/analytics";
 import { assessmentAttemptKind, calculateAssessmentCategoryScores, calculateAssessmentMetrics, getAssessmentCategories, getAssessmentQuestionDetails, JAVASCRIPT_ASSESSMENT_QUESTION_COUNT, JAVASCRIPT_ASSESSMENT_VERSION, summarizeAssessmentAttempts } from "@/lib/cohorts/javascript-assessment";
@@ -12,8 +12,8 @@ type Query = Record<string, string | string[] | undefined>;
 
 export default async function AssessmentReportPage({ params, searchParams }: { params: Promise<{ cohortId: string }>; searchParams: Promise<Query> }) {
   const [{ cohortId }, query] = await Promise.all([params, searchParams]);
-  const { cohort, user } = await requireCohortAccess(cohortId);
-  if (user.role === "estudiante" || cohort.mode !== "weekly") notFound();
+  const { cohort } = await requireCohortStaffAccess(cohortId);
+  if (cohort.mode !== "weekly") notFound();
   const pb = await createAdminServerClient();
   const [enrollments, results] = await Promise.all([
     pb.collection("cohort_enrollments").getFullList<CohortEnrollment>({ filter: pb.filter("cohort = {:cohort} && status = 'active'", { cohort: cohortId }), expand: "user", sort: "user.name" }),

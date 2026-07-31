@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { getAccessibleCohorts, requireCohortAccess } from "@/lib/cohorts/access";
+import { getAccessibleCohorts, requireCohortStaffAccess } from "@/lib/cohorts/access";
 import type { Assignment, CohortEnrollment, Delivery, Inquiry, Sprint, Week } from "@/types";
 import { academicProgressStatus } from "@/lib/cohorts/progress";
 import { matchesSearch, normalizeAnalyticsFilters, percentage } from "@/lib/analytics";
@@ -15,8 +14,7 @@ type Query = Record<string, string | string[] | undefined>;
 
 export default async function CohortDashboardPage({ params, searchParams }: { params: Promise<{ cohortId: string }>; searchParams: Promise<Query> }) {
   const [{ cohortId }, query] = await Promise.all([params, searchParams]);
-  const { pb, user, cohort } = await requireCohortAccess(cohortId);
-  if (user.role === "estudiante") notFound();
+  const { pb, user, cohort } = await requireCohortStaffAccess(cohortId);
   const accessibleCohorts = await getAccessibleCohorts(user);
   const filters = normalizeAnalyticsFilters(query); const enrollmentStatus = filters.status === "completed" ? "completed" : "active";
   const periodCollection = cohort.mode === "weekly" ? "weeks" : "sprints";

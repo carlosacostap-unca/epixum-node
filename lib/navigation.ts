@@ -1,4 +1,5 @@
 import type { Cohort, CohortMode, UserRole } from "@/types";
+import { isStaffRole } from "./cohorts/access-policy";
 
 export type NavigationIcon = "home" | "cohorts" | "content" | "inquiries" | "dashboard" | "teams" | "reviews" | "survey" | "requests" | "users" | "settings";
 
@@ -18,7 +19,6 @@ export interface NavigationItem {
   exact?: boolean;
 }
 
-const isStaff = (role: UserRole) => role === "docente" || role === "admin";
 const cohortContentHref = (id: string, mode: CohortMode) => `/cohorts/${id}/${mode === "weekly" ? "weeks" : "sprints"}`;
 
 export function getNavigationItems({ role, cohort, showCohorts = true }: NavigationContext): NavigationItem[] {
@@ -33,7 +33,7 @@ export function getNavigationItems({ role, cohort, showCohorts = true }: Navigat
       { id: "content", label: cohort.mode === "weekly" ? "Semanas" : "Sprints", href: cohortContentHref(cohort.id, cohort.mode), icon: "content", mobile: true },
       { id: "inquiries", label: "Consultas", href: `${root}/inquiries`, icon: "inquiries", mobile: true },
     );
-    if (isStaff(role)) items.push({ id: "dashboard", label: "Tablero", href: `${root}/dashboard`, icon: "dashboard", mobile: true });
+    if (isStaffRole(role)) items.push({ id: "dashboard", label: "Tablero", href: `${root}/dashboard`, icon: "dashboard", mobile: true });
     if (cohort.mode === "sprints_and_teams") {
       items.push({ id: "teams", label: role === "estudiante" ? "Mi equipo" : "Equipos", href: `${root}/teams`, icon: "teams" });
       items.push({ id: "reviews", label: "Revisiones", href: `${root}/reviews`, icon: "reviews" });
@@ -41,7 +41,7 @@ export function getNavigationItems({ role, cohort, showCohorts = true }: Navigat
     }
   }
 
-  if (isStaff(role)) items.push({ id: "requests", label: "Solicitudes", href: "/staff/enrollment-requests", icon: "requests" });
+  if (isStaffRole(role)) items.push({ id: "requests", label: "Solicitudes", href: "/staff/enrollment-requests", icon: "requests" });
   if (role === "admin") items.push(
     { id: "admin-cohorts", label: "Administrar cohortes", href: "/admin/cohorts", icon: "settings" },
     { id: "users", label: "Administrar usuarios", href: "/admin/users", icon: "users" },

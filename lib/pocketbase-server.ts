@@ -19,6 +19,13 @@ export async function createServerClient() {
   
   if (token) {
     serverPb.authStore.loadFromCookie(`pb_auth=${token}`);
+    if (serverPb.authStore.isValid) {
+      try {
+        await serverPb.collection('users').authRefresh({ requestKey: null });
+      } catch {
+        serverPb.authStore.clear();
+      }
+    }
   }
 
   return serverPb;
