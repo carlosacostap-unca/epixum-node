@@ -1,217 +1,51 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createInquiry } from "@/lib/actions-inquiries";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Class, Assignment, Sprint } from "@/types";
+import type { Assignment, Class, Sprint } from "@/types";
+import { createInquiry } from "@/lib/actions-inquiries";
+import { Alert, Button, Card, CardContent, Input, LinkButton, Select, Textarea } from "@/components/ui";
 
-interface CreateInquiryFormProps {
-  initialClassId?: string;
-  initialAssignmentId?: string;
-  classes: Class[];
-  assignments: Assignment[];
-  sprints: Sprint[];
-}
+interface Props { cohortId?: string; weekId?: string; basePath?: string; initialClassId?: string; initialAssignmentId?: string; classes: Class[]; assignments: Assignment[]; sprints: Sprint[] }
 
-export default function CreateInquiryForm({ initialClassId, initialAssignmentId, classes, assignments, sprints }: CreateInquiryFormProps) {
+export default function CreateInquiryForm({ cohortId, weekId, basePath, initialClassId, initialAssignmentId, classes, assignments, sprints }: Props) {
+  const initialSprintId = initialClassId ? classes.find(item => item.id === initialClassId)?.sprint : assignments.find(item => item.id === initialAssignmentId)?.sprint;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedSprintId, setSelectedSprintId] = useState<string>("");
-  const [selectedClassId, setSelectedClassId] = useState<string>(initialClassId || "");
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>(initialAssignmentId || "");
-  const [isLoading, setIsLoading] = useState(false);
+  const [sprintId, setSprintId] = useState(initialSprintId || "");
+  const [classId, setClassId] = useState(initialClassId || "");
+  const [assignmentId, setAssignmentId] = useState(initialAssignmentId || "");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const cancelHref = basePath || "/inquiries";
+  const filteredClasses = weekId ? classes.filter(item => item.week === weekId) : classes.filter(item => item.sprint === sprintId);
+  const filteredAssignments = weekId ? assignments.filter(item => item.week === weekId) : assignments.filter(item => item.sprint === sprintId);
 
-  // Initialize Sprint if Class or Assignment is pre-selected
-  useEffect(() => {
-    if (initialClassId) {
-      const cls = classes.find(c => c.id === initialClassId);
-      if (cls) setSelectedSprintId(cls.sprint);
-    } else if (initialAssignmentId) {
-      const asg = assignments.find(a => a.id === initialAssignmentId);
-      if (asg) setSelectedSprintId(asg.sprint);
-    }
-  }, [initialClassId, initialAssignmentId, classes, assignments]);
+  async function submit(event: React.FormEvent) {
+    event.preventDefault(); setError(null);
+    if (title.trim().length < 4) return setError("Escribí un título de al menos 4 caracteres.");
+    if (description.trim().length < 10) return setError("Contá tu duda con al menos 10 caracteres para que podamos ayudarte.");
+    setPending(true);
+    const result = await createInquiry({ title, description, cohortId, weekId, classId: classId || undefined, assignmentId: assignmentId || undefined });
+    setPending(false);
+    if (!result.success) return setError(result.error || "No pudimos crear la consulta.");
+    router.push(cohortId ? `/cohorts/${cohortId}/inquiries/${result.data.id}` : `/inquiries/${result.data.id}`);
+    router.refresh();
+  }
 
-  // Reset class/assignment if sprint changes
-  useEffect(() => {
-    // Only clear if the current selection doesn't belong to the new sprint
-    // But simplified: clear if manually changed by user interaction (we can't easily distinguish here)
-    // Better UX: If I change sprint, clear class/assignment selections to avoid inconsistency
-    // However, the initial load useEffect above might conflict if we are not careful.
-    // The initial load sets sprint based on class/assignment.
-    // If I change sprint manually, I want to clear class/assignment.
-    
-    // Check if current selected class belongs to new sprint
-    if (selectedClassId) {
-      const cls = classes.find(c => c.id === selectedClassId);
-      if (cls && cls.sprint !== selectedSprintId) {
-        setSelectedClassId("");
-      }
-    }
-    
-    if (selectedAssignmentId) {
-      const asg = assignments.find(a => a.id === selectedAssignmentId);
-      if (asg && asg.sprint !== selectedSprintId) {
-        setSelectedAssignmentId("");
-      }
-    }
-  }, [selectedSprintId, classes, assignments]);
-
-  // Reset assignment if class is selected, and vice versa
-  useEffect(() => {
-    if (selectedClassId) setSelectedAssignmentId("");
-  }, [selectedClassId]);
-
-  useEffect(() => {
-    if (selectedAssignmentId) setSelectedClassId("");
-  }, [selectedAssignmentId]);
-
-  const cancelHref = initialClassId 
-    ? `/classes/${initialClassId}` 
-    : initialAssignmentId 
-      ? `/assignments/${initialAssignmentId}` 
-      : "/inquiries";
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    const result = await createInquiry({
-      title,
-      description,
-      classId: selectedClassId || undefined,
-      assignmentId: selectedAssignmentId || undefined,
-    });
-
-    setIsLoading(false);
-
-    if (result.success) {
-      router.refresh();
-      router.push(cancelHref);
-    } else {
-      alert(result.error || "Error al crear la consulta");
-    }
-  };
-
-  // Filter classes and assignments based on selected Sprint
-  const filteredClasses = selectedSprintId 
-    ? classes.filter(c => c.sprint === selectedSprintId)
-    : [];
-
-  const filteredAssignments = selectedSprintId
-    ? assignments.filter(a => a.sprint === selectedSprintId)
-    : [];
-
-  return (
-    <form onSubmit={handleSubmit} className="bg-white dark:bg-zinc-800 p-6 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          Título
-        </label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-          required
-          placeholder="Resumen breve de tu duda"
-        />
+  return <Card><CardContent className="p-6 sm:p-8"><form onSubmit={submit} className="space-y-6">
+    {error && <Alert variant="danger" title="Revisá la consulta">{error}</Alert>}
+    <div><h2 className="text-lg font-bold">Tu pregunta</h2><p className="mt-1 text-sm text-muted">Un título claro y el contexto correcto ayudan a responder más rápido.</p></div>
+    <Input label="Título" value={title} onChange={event => setTitle(event.target.value)} placeholder="Resumen breve de tu duda" required maxLength={140} />
+    <Textarea label="Descripción" value={description} onChange={event => setDescription(event.target.value)} placeholder="Explicá qué intentaste, qué esperabas y qué ocurrió." required rows={8} />
+    <fieldset className="space-y-4 rounded-md border bg-surface-muted p-4"><legend className="px-1 text-sm font-bold">Contexto académico (opcional)</legend>
+      {!weekId && <Select label="Sprint" value={sprintId} onChange={event => { setSprintId(event.target.value); setClassId(""); setAssignmentId(""); }}><option value="">Consulta general</option>{sprints.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</Select>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Select label="Clase" value={classId} disabled={Boolean(assignmentId) || (!weekId && !sprintId)} onChange={event => { setClassId(event.target.value); if (event.target.value) setAssignmentId(""); }}><option value="">Ninguna</option>{filteredClasses.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</Select>
+        <Select label="Trabajo práctico" value={assignmentId} disabled={Boolean(classId) || (!weekId && !sprintId)} onChange={event => { setAssignmentId(event.target.value); if (event.target.value) setClassId(""); }}><option value="">Ninguno</option>{filteredAssignments.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</Select>
       </div>
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          Sprint (Opcional - Filtra Clases y TPs)
-        </label>
-        <select
-          value={selectedSprintId}
-          onChange={(e) => setSelectedSprintId(e.target.value)}
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-        >
-          <option value="">-- Seleccionar Sprint --</option>
-          {sprints.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.title}
-            </option>
-          ))}
-        </select>
-        {!selectedSprintId && <p className="text-xs text-zinc-500 mt-1">Selecciona un Sprint para ver sus Clases y Trabajos Prácticos</p>}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Relacionar con Clase (Opcional)
-          </label>
-          <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            disabled={!!selectedAssignmentId || !selectedSprintId}
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
-          >
-            <option value="">-- Ninguna --</option>
-            {filteredClasses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-          {selectedAssignmentId && <p className="text-xs text-zinc-500 mt-1">Deshabilitado porque se seleccionó un Trabajo Práctico</p>}
-          {!selectedSprintId && !selectedAssignmentId && <p className="text-xs text-zinc-500 mt-1">Selecciona un Sprint primero</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Relacionar con Trabajo Práctico (Opcional)
-          </label>
-          <select
-            value={selectedAssignmentId}
-            onChange={(e) => setSelectedAssignmentId(e.target.value)}
-            disabled={!!selectedClassId || !selectedSprintId}
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
-          >
-            <option value="">-- Ninguno --</option>
-            {filteredAssignments.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.title}
-              </option>
-            ))}
-          </select>
-          {selectedClassId && <p className="text-xs text-zinc-500 mt-1">Deshabilitado porque se seleccionó una Clase</p>}
-          {!selectedSprintId && !selectedClassId && <p className="text-xs text-zinc-500 mt-1">Selecciona un Sprint primero</p>}
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          Descripción
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={10}
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-          required
-          placeholder="Describe tu consulta en detalle..."
-        />
-      </div>
-
-      <div className="flex justify-end gap-3">
-        <Link
-          href={cancelHref}
-          className="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Cancelar
-        </Link>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          {isLoading ? "Creando..." : "Crear Consulta"}
-        </button>
-      </div>
-    </form>
-  );
+    </fieldset>
+    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><LinkButton href={cancelHref} variant="secondary">Cancelar</LinkButton><Button type="submit" loading={pending}>Publicar consulta</Button></div>
+  </form></CardContent></Card>;
 }

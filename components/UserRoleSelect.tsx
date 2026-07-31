@@ -1,29 +1,6 @@
 "use client";
-
-import { updateUserRole } from "@/lib/actions";
-import { User } from "@/types";
 import { useState } from "react";
-
-export default function UserRoleSelect({ user }: { user: User }) {
-  const [loading, setLoading] = useState(false);
-
-  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setLoading(true);
-    await updateUserRole(user.id, e.target.value);
-    setLoading(false);
-  };
-
-  return (
-    <select
-      value={user.role || ""}
-      onChange={handleChange}
-      disabled={loading}
-      className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-2 py-1 text-sm"
-    >
-      <option value="">Seleccionar rol</option>
-      <option value="estudiante">Estudiante</option>
-      <option value="docente">Docente</option>
-      <option value="admin">Administrador</option>
-    </select>
-  );
-}
+import { updateUserRole } from "@/lib/actions";
+import type { User } from "@/types";
+import { Alert, Select } from "@/components/ui";
+export default function UserRoleSelect({ user }: { user: User }) { const [role, setRole] = useState(user.role); const [pending, setPending] = useState(false); const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null); const change = async (next: User["role"]) => { const previous = role; setRole(next); setPending(true); setFeedback(null); const result = await updateUserRole(user.id, next); setPending(false); if (!result?.success) { setRole(previous); setFeedback({ ok: false, text: result?.error || "No se pudo actualizar el rol." }); } else setFeedback({ ok: true, text: "Rol actualizado." }); }; return <div className="space-y-2"><Select label="Rol" value={role} disabled={pending} onChange={(event) => void change(event.target.value as User["role"])}><option value="estudiante">Estudiante</option><option value="docente">Docente</option><option value="admin">Administrador</option></Select>{feedback && <Alert variant={feedback.ok ? "success" : "danger"}>{feedback.text}</Alert>}</div>; }

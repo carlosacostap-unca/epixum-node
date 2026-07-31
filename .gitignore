@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/output/
 
 # next.js
 /.next/
@@ -29,6 +30,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.codex-dev.*.log
+
+# local student exports (personal data)
+/docs/alumnos_aprobados.csv
+/docs/alumnos_primera_cohorte_seleccion.csv
 
 # env files (can opt-in for committing if needed)
 .env*

@@ -8,15 +8,17 @@ import { deleteClass, deleteAssignment } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import ClassForm from "./ClassForm";
 import AssignmentForm from "./AssignmentForm";
+import { Dialog } from "./ui";
 
 interface SprintDetailsManagementProps {
   user: User;
   sprintId: string;
+  cohortId: string;
   classes: Class[];
   assignments: Assignment[];
 }
 
-export default function SprintDetailsManagement({ user, sprintId, classes, assignments }: SprintDetailsManagementProps) {
+export default function SprintDetailsManagement({ user, sprintId, cohortId, classes, assignments }: SprintDetailsManagementProps) {
   const [isCreatingClass, setIsCreatingClass] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
@@ -67,7 +69,7 @@ export default function SprintDetailsManagement({ user, sprintId, classes, assig
               key={clase.id}
               className="relative group flex items-center p-4 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
             >
-              <Link href={`/classes/${clase.id}`} className="flex-grow flex items-center">
+              <Link href={`/cohorts/${cohortId}/classes/${clase.id}`} className="flex-grow flex items-center">
                 <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-bold group-hover:bg-blue-100 group-hover:text-blue-600 dark:group-hover:bg-blue-900 dark:group-hover:text-blue-200 transition-colors">
                   {index + 1}
                 </div>
@@ -137,7 +139,7 @@ export default function SprintDetailsManagement({ user, sprintId, classes, assig
                     key={tp.id} 
                     className="group relative flex items-center p-6 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:border-purple-500 dark:hover:border-purple-500 transition-all hover:shadow-md"
                 >
-                    <Link href={`/assignments/${tp.id}`} className="flex-grow flex items-center">
+                    <Link href={`/cohorts/${cohortId}/assignments/${tp.id}`} className="flex-grow flex items-center">
                         <div className="flex-shrink-0 w-10 h-10 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold mr-4">
                             {index + 1}
                         </div>
@@ -179,28 +181,10 @@ export default function SprintDetailsManagement({ user, sprintId, classes, assig
         <p className="text-zinc-500 italic">No hay trabajos prácticos en este sprint.</p>
       )}
 
-      {/* Modals */}
-      {isCreatingClass && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <ClassForm sprintId={sprintId} onClose={() => setIsCreatingClass(false)} />
-        </div>
-      )}
-      {editingClass && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <ClassForm sprintId={sprintId} clase={editingClass} onClose={() => setEditingClass(null)} />
-        </div>
-      )}
-
-      {isCreatingAssignment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <AssignmentForm sprintId={sprintId} onClose={() => setIsCreatingAssignment(false)} />
-        </div>
-      )}
-      {editingAssignment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <AssignmentForm sprintId={sprintId} assignment={editingAssignment} onClose={() => setEditingAssignment(null)} />
-        </div>
-      )}
+      <Dialog open={isCreatingClass} onOpenChange={setIsCreatingClass} title="Nueva clase" description="Agregá una clase a este sprint."><ClassForm sprintId={sprintId} onClose={() => setIsCreatingClass(false)} /></Dialog>
+      {editingClass && <Dialog open onOpenChange={open => { if (!open) setEditingClass(null); }} title="Editar clase"><ClassForm sprintId={sprintId} clase={editingClass} onClose={() => setEditingClass(null)} /></Dialog>}
+      <Dialog open={isCreatingAssignment} onOpenChange={setIsCreatingAssignment} title="Nuevo trabajo práctico" description="Definí el trabajo y sus indicaciones."><AssignmentForm sprintId={sprintId} onClose={() => setIsCreatingAssignment(false)} /></Dialog>
+      {editingAssignment && <Dialog open onOpenChange={open => { if (!open) setEditingAssignment(null); }} title="Editar trabajo práctico" className="w-[min(52rem,calc(100%-2rem))]"><AssignmentForm sprintId={sprintId} assignment={editingAssignment} onClose={() => setEditingAssignment(null)} /></Dialog>}
 
     </div>
   );

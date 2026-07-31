@@ -9,15 +9,17 @@ import { useRouter } from "next/navigation";
 import ClassForm from "./ClassForm";
 import LinkForm from "./LinkForm";
 import InquiryList from "./inquiries/InquiryList";
+import { Dialog } from "./ui";
 
 interface ClassDetailsManagementProps {
   user: User;
+  cohortId: string;
   classData: Class;
   links: LinkType[];
   inquiries: Inquiry[];
 }
 
-export default function ClassDetailsManagement({ user, classData, links, inquiries }: ClassDetailsManagementProps) {
+export default function ClassDetailsManagement({ user, cohortId, classData, links, inquiries }: ClassDetailsManagementProps) {
   const [isEditingClass, setIsEditingClass] = useState(false);
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [editingLink, setEditingLink] = useState<LinkType | null>(null);
@@ -34,7 +36,7 @@ export default function ClassDetailsManagement({ user, classData, links, inquiri
   return (
     <>
       <div className="mb-8">
-          <Link href={`/sprints/${classData.sprint}`} className="text-blue-500 hover:underline inline-block">&larr; Volver al Sprint</Link>
+          <Link href={classData.week ? `/cohorts/${cohortId}/weeks/${classData.week}?section=classes` : `/cohorts/${cohortId}/sprints/${classData.sprint}?section=classes`} className="text-blue-500 hover:underline inline-block">&larr; Volver al contenido</Link>
       </div>
 
       <header className="mb-12 relative group">
@@ -125,27 +127,12 @@ export default function ClassDetailsManagement({ user, classData, links, inquiri
 
       <div className="space-y-6 mt-12">
         <h2 className="text-2xl font-bold mb-4">Consultas</h2>
-        <InquiryList inquiries={inquiries} currentUser={user} context={{ classId: classData.id }} />
+        <InquiryList inquiries={inquiries} currentUser={user} context={{ cohortId, weekId: classData.week, classId: classData.id, basePath: `/cohorts/${cohortId}/inquiries` }} />
       </div>
 
-      {/* Modals */}
-      {isEditingClass && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <ClassForm sprintId={classData.sprint} clase={classData} onClose={() => setIsEditingClass(false)} />
-        </div>
-      )}
-
-      {isCreatingLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <LinkForm classId={classData.id} onClose={() => setIsCreatingLink(false)} />
-        </div>
-      )}
-
-      {editingLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <LinkForm classId={classData.id} link={editingLink} onClose={() => setEditingLink(null)} />
-        </div>
-      )}
+      <Dialog open={isEditingClass} onOpenChange={setIsEditingClass} title="Editar clase"><ClassForm sprintId={classData.sprint} clase={classData} onClose={() => setIsEditingClass(false)} /></Dialog>
+      <Dialog open={isCreatingLink} onOpenChange={setIsCreatingLink} title="Agregar recurso" description="Vinculá documentación, herramientas o materiales externos."><LinkForm classId={classData.id} onClose={() => setIsCreatingLink(false)} /></Dialog>
+      {editingLink && <Dialog open onOpenChange={open => { if (!open) setEditingLink(null); }} title="Editar recurso"><LinkForm classId={classData.id} link={editingLink} onClose={() => setEditingLink(null)} /></Dialog>}
     </>
   );
 }

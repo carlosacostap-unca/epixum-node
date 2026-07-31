@@ -1,27 +1,127 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f7f8fb;
+  --foreground: #18181b;
+  --surface: #ffffff;
+  --surface-muted: #f1f3f7;
+  --surface-elevated: #ffffff;
+  --border: #dfe3ea;
+  --border-strong: #c5cbd5;
+  --muted: #626b7a;
+  --primary: #2558d9;
+  --primary-hover: #1d46ae;
+  --primary-soft: #e8efff;
+  --success: #087a55;
+  --success-soft: #e6f7f0;
+  --warning: #9a5b00;
+  --warning-soft: #fff4d6;
+  --danger: #b4232c;
+  --danger-soft: #ffeaec;
+  --info: #1d62a8;
+  --info-soft: #e7f3ff;
+  --focus: #4b7bec;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 12px 30px rgb(15 23 42 / 0.09);
+  --duration-fast: 150ms;
+  --duration-normal: 220ms;
+  --content-reading: 48rem;
+  --content-form: 56rem;
+  --content-dashboard: 90rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-focus: var(--focus);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --background: #0d1017;
+    --foreground: #f4f5f7;
+    --surface: #151922;
+    --surface-muted: #1c222e;
+    --surface-elevated: #202633;
+    --border: #303846;
+    --border-strong: #465064;
+    --muted: #a8b0bf;
+    --primary: #7da2ff;
+    --primary-hover: #a8c0ff;
+    --primary-soft: #1d3268;
+    --success: #63d4a9;
+    --success-soft: #123b31;
+    --warning: #f1bd62;
+    --warning-soft: #493413;
+    --danger: #ff8990;
+    --danger-soft: #4d2025;
+    --info: #83bfff;
+    --info-soft: #173754;
+    --focus: #94b2ff;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.25);
+    --shadow-md: 0 16px 38px rgb(0 0 0 / 0.32);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  min-width: 320px;
+  background: var(--background);
+  scroll-behavior: smooth;
 }
 
 body {
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

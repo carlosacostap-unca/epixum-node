@@ -1,175 +1,101 @@
 "use client";
 
-import { Inquiry, User } from "@/types";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { Inquiry, User } from "@/types";
+import { Button, EmptyState, Input, LinkButton, Select } from "@/components/ui";
 import InquiryCard from "./InquiryCard";
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useSearchParams, usePathname, useRouter } from "next/navigation";
+
+type StatusFilter = "all" | "pending" | "resolved" | "mine";
 
 interface InquiryListProps {
   inquiries: Inquiry[];
   currentUser: User | null;
-  context?: {
-    classId?: string;
-    assignmentId?: string;
-  };
+  context?: { cohortId?: string; weekId?: string; classId?: string; assignmentId?: string; basePath?: string };
   showSearch?: boolean;
+  canCreate?: boolean;
 }
 
-export default function InquiryList({ inquiries, currentUser, context, showSearch = false }: InquiryListProps) {
-  const [filter, setFilter] = useState<"all" | "pending" | "resolved" | "mine">("all");
-  
+export default function InquiryList({ inquiries, currentUser, context, showSearch = false, canCreate = Boolean(currentUser) }: InquiryListProps) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { replace } = useRouter();
-  
-  const [searchTerm, setSearchTerm] = useState(searchParams.get("search")?.toString() || "");
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [status, setStatus] = useState<StatusFilter>(normalizeStatus(searchParams.get("status")));
+  const [contentContext, setContentContext] = useState(searchParams.get("context") || "all");
 
-  // Update local state when URL changes (external navigation)
   useEffect(() => {
-      // Only update if the value is different to avoid cursor jumping if we were typing
-      const urlSearch = searchParams.get("search")?.toString() || "";
-      if (urlSearch !== searchTerm) {
-        setSearchTerm(urlSearch);
-      }
-  }, [searchParams]);
+    if (!showSearch) return;
+    const timer = window.setTimeout(() => updateUrl({ search: searchTerm || null }), 350);
+    return () => window.clearTimeout(timer);
+    // searchParams is intentionally read inside updateUrl to preserve unrelated cohort params.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, showSearch]);
 
-  // Debounce search update
-  useEffect(() => {
-    const timer = setTimeout(() => {
-        const currentUrlSearch = searchParams.get("search")?.toString() || "";
-        if (searchTerm !== currentUrlSearch) {
-            const params = new URLSearchParams(searchParams);
-            if (searchTerm) {
-                params.set("search", searchTerm);
-            } else {
-                params.delete("search");
-            }
-            replace(`${pathname}?${params.toString()}`);
-        }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchTerm, searchParams, pathname, replace]);
-
-  const filteredInquiries = inquiries.filter((inquiry) => {
-    if (filter === "pending") return inquiry.status === "Pendiente";
-    if (filter === "resolved") return inquiry.status === "Resuelta";
-    if (filter === "mine") return inquiry.author === currentUser?.id;
-    return true;
+  const contexts = useMemo(() => inquiryContexts(inquiries), [inquiries]);
+  const normalizedSearch = searchTerm.trim().toLocaleLowerCase("es");
+  const filtered = inquiries.filter(inquiry => {
+    const statusMatch = status === "all"
+      || (status === "pending" && inquiry.status === "Pendiente")
+      || (status === "resolved" && inquiry.status === "Resuelta")
+      || (status === "mine" && inquiry.author === currentUser?.id);
+    const contextMatch = contentContext === "all" || inquiryContextKey(inquiry) === contentContext;
+    const text = [inquiry.title, inquiry.description, inquiry.expand?.author?.name, inquiry.expand?.author?.email, inquiry.expand?.week?.title, inquiry.expand?.class?.title, inquiry.expand?.assignment?.title].filter(Boolean).join(" ").toLocaleLowerCase("es");
+    return statusMatch && contextMatch && (!normalizedSearch || text.includes(normalizedSearch));
   });
+  const ordered = [...filtered].sort((a, b) => Number(a.status === "Resuelta") - Number(b.status === "Resuelta") || b.created.localeCompare(a.created));
 
-  let newInquiryHref = "/inquiries/new";
-  const params = new URLSearchParams();
-  if (context?.classId) params.set("classId", context.classId);
-  if (context?.assignmentId) params.set("assignmentId", context.assignmentId);
-  const queryString = params.toString();
-  if (queryString) newInquiryHref += `?${queryString}`;
+  let newInquiryHref = `${context?.basePath || "/inquiries"}/new`;
+  const newParams = new URLSearchParams();
+  if (context?.classId) newParams.set("classId", context.classId);
+  if (context?.assignmentId) newParams.set("assignmentId", context.assignmentId);
+  if (context?.weekId) newParams.set("weekId", context.weekId);
+  if (newParams.size) newInquiryHref += `?${newParams}`;
 
-  return (
-    <div className="space-y-6">
-      {showSearch && (
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md leading-5 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
-            placeholder="Buscar por título, descripción, autor, clase, sprint..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      )}
+  function updateUrl(changes: Record<string, string | null>) {
+    if (!showSearch) return;
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(changes).forEach(([key, value]) => value && value !== "all" ? params.set(key, value) : params.delete(key));
+    const query = params.toString();
+    replace(query ? `${pathname}?${query}` : pathname);
+  }
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
-          <button
-            onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-              filter === "all"
-                ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            Todas
-          </button>
-          <button
-            onClick={() => setFilter("pending")}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-              filter === "pending"
-                ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            Pendientes
-          </button>
-          <button
-            onClick={() => setFilter("resolved")}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-              filter === "resolved"
-                ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            Resueltas
-          </button>
-          {currentUser && (
-            <button
-              onClick={() => setFilter("mine")}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                filter === "mine"
-                  ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-              }`}
-            >
-              Mis Consultas
-            </button>
-          )}
-        </div>
+  function changeStatus(value: StatusFilter) { setStatus(value); updateUrl({ status: value }); }
+  function changeContext(value: string) { setContentContext(value); updateUrl({ context: value }); }
+  function clearFilters() { setSearchTerm(""); setStatus("all"); setContentContext("all"); updateUrl({ search: null, status: null, context: null }); }
 
-        {currentUser && (
-          <Link
-            href={newInquiryHref}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Nueva Consulta
-          </Link>
-        )}
+  return <section aria-label="Bandeja de consultas" className="space-y-5">
+    <div className="rounded-lg border bg-surface p-4 sm:p-5">
+      <div className={`grid gap-4 ${showSearch ? "md:grid-cols-[minmax(0,1fr)_12rem_15rem]" : "sm:grid-cols-2"}`}>
+        {showSearch && <Input id="inquiry-search" type="search" label="Buscar consultas" placeholder="Título, autor o contenido" value={searchTerm} onChange={event => setSearchTerm(event.target.value)} />}
+        <Select id="inquiry-status" label="Estado" value={status} onChange={event => changeStatus(event.target.value as StatusFilter)}>
+          <option value="all">Todos los estados</option><option value="pending">Pendientes</option><option value="resolved">Resueltas</option>{currentUser && <option value="mine">Mis consultas</option>}
+        </Select>
+        <Select id="inquiry-context" label="Contexto" value={contentContext} onChange={event => changeContext(event.target.value)}>
+          <option value="all">Todos los contextos</option>{contexts.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+        </Select>
       </div>
-
-      {filteredInquiries.length === 0 ? (
-        <div className="text-center py-12 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800">
-          <svg className="mx-auto h-12 w-12 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">No hay consultas</h3>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {filter === "all" ? "Sé el primero en preguntar algo." : "No hay consultas con este filtro."}
-          </p>
-          {filter !== "all" && (
-            <div className="mt-6">
-              <button
-                onClick={() => setFilter("all")}
-                className="text-sm font-medium text-blue-600 hover:text-blue-500"
-              >
-                Ver todas las consultas
-              </button>
-            </div>
-          )}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+        <p className="text-sm text-muted" role="status" aria-live="polite">{ordered.length} consulta{ordered.length === 1 ? "" : "s"} coincidente{ordered.length === 1 ? "" : "s"}</p>
+        <div className="flex flex-wrap gap-2">
+          {(searchTerm || status !== "all" || contentContext !== "all") && <Button variant="ghost" size="sm" onClick={clearFilters}>Limpiar filtros</Button>}
+          {canCreate && <LinkButton href={newInquiryHref} size="sm">Nueva consulta</LinkButton>}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredInquiries.map((inquiry) => (
-            <InquiryCard key={inquiry.id} inquiry={inquiry} currentUser={currentUser} />
-          ))}
-        </div>
-      )}
+      </div>
     </div>
-  );
+
+    {ordered.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{ordered.map(inquiry => <InquiryCard key={inquiry.id} inquiry={inquiry} currentUser={currentUser} basePath={context?.basePath} />)}</div> : <EmptyState title="No encontramos consultas" description="Ajustá los filtros o creá una nueva consulta para iniciar una conversación." action={canCreate ? <LinkButton href={newInquiryHref}>Nueva consulta</LinkButton> : undefined} />}
+  </section>;
+}
+
+function normalizeStatus(value: string | null): StatusFilter { return value === "pending" || value === "resolved" || value === "mine" ? value : "all"; }
+function inquiryContextKey(inquiry: Inquiry) { if (inquiry.class) return `class:${inquiry.class}`; if (inquiry.assignment) return `assignment:${inquiry.assignment}`; if (inquiry.week) return `week:${inquiry.week}`; return "general"; }
+function inquiryContexts(inquiries: Inquiry[]) {
+  const values = new Map<string, string>();
+  inquiries.forEach(inquiry => {
+    const key = inquiryContextKey(inquiry);
+    const label = inquiry.expand?.class?.title || inquiry.expand?.assignment?.title || inquiry.expand?.week?.title || "Consulta general";
+    values.set(key, label);
+  });
+  return [...values].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "es"));
 }

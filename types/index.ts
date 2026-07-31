@@ -7,6 +7,13 @@ export interface BaseModel {
 }
 
 export type UserRole = 'admin' | 'docente' | 'estudiante';
+export type CohortMode = 'sprints_and_teams' | 'weekly';
+export type CohortStatus = 'active' | 'archived';
+export type EnrollmentStatus = 'active' | 'completed';
+export type EnrollmentEntryType = 'new' | 'repeater';
+export type AdmissionStatus = 'pending' | 'claimed' | 'cancelled';
+export type WeekPublicationStatus = 'draft' | 'published';
+export type EnrollmentRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface User extends BaseModel {
   username: string;
@@ -31,7 +38,8 @@ export interface Link extends BaseModel {
 export interface Class extends BaseModel {
   title: string;
   description: string;
-  sprint: string; // Relation to Sprint ID
+  sprint?: string; // Relation to Sprint ID (exclusive with week)
+  week?: string; // Relation to Week ID (exclusive with sprint)
   date: string;
   // Expanding relations
   expand?: {
@@ -45,6 +53,7 @@ export interface Sprint extends BaseModel {
   course: string; // Relation to Course ID (if multiple courses)
   startDate: string;
   endDate: string;
+  cohort?: string; // Optional only during legacy migration
   // Expanding relations
   expand?: {
     classes?: Class[];
@@ -55,7 +64,8 @@ export interface Sprint extends BaseModel {
 export interface Assignment extends BaseModel {
   title: string;
   description: string;
-  sprint: string; // Relation to Sprint ID
+  sprint?: string; // Relation to Sprint ID (exclusive with week)
+  week?: string; // Relation to Week ID (exclusive with sprint)
   // Expanding relations
   expand?: {
     links?: Link[];
@@ -83,6 +93,7 @@ export interface Course extends BaseModel {
 
 export interface Team extends BaseModel {
   name: string;
+  cohort?: string; // Optional only during legacy migration
   members: string[]; // Relation to User IDs (students)
   expand?: {
     members?: User[];
@@ -152,11 +163,90 @@ export interface Inquiry extends BaseModel {
   author: string; // Relation to User ID
   class?: string; // Relation to Class ID (optional)
   assignment?: string; // Relation to Assignment ID (optional)
+  cohort: string; // Relation to Cohort ID
+  week?: string; // Optional weekly context
   expand?: {
     author?: User;
     class?: Class;
     assignment?: Assignment;
+    cohort?: Cohort;
+    week?: Week;
   };
+}
+
+export interface Cohort extends BaseModel {
+  name: string;
+  slug: string;
+  mode: CohortMode;
+  status: CohortStatus;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CohortEnrollment extends BaseModel {
+  user: string;
+  cohort: string;
+  status: EnrollmentStatus;
+  entryType: EnrollmentEntryType;
+  enrolledAt: string;
+  completedAt?: string;
+  expand?: { user?: User; cohort?: Cohort };
+}
+
+export interface StudentAdmission extends BaseModel {
+  normalizedEmail: string;
+  displayName: string;
+  dni?: string;
+  birthDate?: string;
+  phone?: string;
+  cohort: string;
+  entryType: EnrollmentEntryType;
+  status: AdmissionStatus;
+  claimedBy?: string;
+  claimedAt?: string;
+  expand?: { cohort?: Cohort; claimedBy?: User };
+}
+
+export interface Week extends BaseModel {
+  cohort: string;
+  number: number;
+  title: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  publicationStatus: WeekPublicationStatus;
+  publishedAt?: string;
+  expand?: { cohort?: Cohort; classes?: Class[]; assignments?: Assignment[] };
+}
+
+export interface JavascriptAssessmentResult extends BaseModel {
+  cohort: string;
+  student: string;
+  assessmentVersion: string;
+  attemptKind?: "initial" | "practice";
+  attemptKey?: string;
+  answers: Record<string, string>;
+  score: number;
+  totalQuestions: number;
+  completedAt: string;
+  expand?: { cohort?: Cohort; student?: User };
+}
+
+export interface EnrollmentRequest extends BaseModel {
+  firstName: string;
+  lastName: string;
+  dni: string;
+  birthDate: string;
+  normalizedEmail: string;
+  phone: string;
+  cohort: string;
+  status: EnrollmentRequestStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  resolution?: string;
+  linkedUser?: string;
+  admission?: string;
+  expand?: { cohort?: Cohort; reviewedBy?: User; linkedUser?: User; admission?: StudentAdmission };
 }
 
 export interface InquiryResponse extends BaseModel {

@@ -1,230 +1,71 @@
-import { getSprints } from "@/lib/data";
-import { Sprint } from "@/types";
 import Link from "next/link";
-import { getCurrentUser, createServerClient } from "@/lib/pocketbase-server";
-import FormattedDate from "@/components/FormattedDate";
+import { redirect } from "next/navigation";
+import type PocketBase from "pocketbase";
+import type { ReactNode } from "react";
+import WeeklyCohortHome from "@/components/cohorts/WeeklyCohortHome";
+import { Badge, Card, CardContent, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { getAccessibleCohorts } from "@/lib/cohorts/access";
+import { createServerClient, getCurrentUser } from "@/lib/pocketbase-server";
+import type { Assignment, Cohort, Delivery, Inquiry, Review, Sprint, User, Week } from "@/types";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser(); if (!user) redirect("/login");
+  const cohorts = await getAccessibleCohorts(user); const cohort = cohorts.find(item => item.status === "active") || cohorts[0] || null;
+  if (user.role === "estudiante" && cohort?.mode === "weekly") return <WeeklyCohortHome cohort={cohort} user={user} />;
   const pb = await createServerClient();
-
-  // 1. Student View (Navigation Cards)
-  if (user && user.role === 'estudiante') {
-    let hasCompletedSurvey = false;
-    
-    try {
-        // Try to find Sprint 1
-        const sprint1 = await pb.collection('sprints').getFirstListItem('title ~ "Sprint 1" || title ~ "sprint 1"', {
-            sort: 'created',
-        });
-        
-        if (sprint1) {
-            // Check if survey exists
-            const existingSurvey = await pb.collection('student_surveys').getFirstListItem(
-                `sprint="${sprint1.id}" && student="${user.id}"`
-            );
-            if (existingSurvey) {
-                hasCompletedSurvey = true;
-            }
-        }
-    } catch (e) {
-        // If sprint not found or survey not found (404), hasCompletedSurvey remains false
-    }
-
-    return (
-        <div className="container mx-auto p-8 min-h-screen">
-            <header className="mb-12 text-center">
-                <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
-                Curso de Node.js
-                </h1>
-                <p className="text-xl text-zinc-500 dark:text-zinc-400">
-                Domina el backend con Node.js, paso a paso.
-                </p>
-            </header>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-12">
-                {!hasCompletedSurvey && (
-                <Link href="/student-form" className="block md:col-span-2 p-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg border border-transparent hover:shadow-xl hover:scale-[1.02] transition-all group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
-                    <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-black opacity-10 rounded-full blur-xl"></div>
-                    
-                    <div className="relative flex items-center">
-                        <div className="w-16 h-16 bg-white/20 text-white rounded-xl flex items-center justify-center mr-6 backdrop-blur-sm">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        </div>
-                        <div>
-                            <h2 className="text-3xl font-bold mb-2 text-white">Encuesta del Sprint 1</h2>
-                            <p className="text-indigo-100 text-lg">Completa este formulario obligatorio para continuar con el curso.</p>
-                        </div>
-                        <div className="ml-auto">
-                            <svg className="w-8 h-8 text-white opacity-70 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                        </div>
-                    </div>
-                </Link>
-                )}
-
-                <Link href="/sprints" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-blue-500 hover:shadow-md transition-all group">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                    </div>
-                    <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Mis Sprints</h2>
-                    <p className="text-zinc-500 dark:text-zinc-400">Accede a tus tareas, entregas y progresos del curso.</p>
-                </Link>
-                
-                <Link href="/my-team" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-purple-500 hover:shadow-md transition-all group">
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                    </div>
-                    <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Mi Equipo</h2>
-                    <p className="text-zinc-500 dark:text-zinc-400">Ver quiénes son tus compañeros de equipo y vuestro progreso.</p>
-                </Link>
-
-                <Link href="/reviews" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-green-500 hover:shadow-md transition-all group">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    </div>
-                    <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Revisiones</h2>
-                    <p className="text-zinc-500 dark:text-zinc-400">Reserva turnos de revisión con tus docentes.</p>
-                </Link>
-
-                <Link href="/inquiries" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-orange-500 hover:shadow-md transition-all group">
-                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </div>
-                    <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Consultas</h2>
-                    <p className="text-zinc-500 dark:text-zinc-400">Pregunta dudas y ayuda a tus compañeros.</p>
-                </Link>
-            </div>
-        </div>
-    );
-  }
-
-  // 2. Teacher / Admin View (Navigation Cards)
-  if (user && (user.role === 'docente' || user.role === 'admin')) {
-    return (
-      <div className="container mx-auto p-8 min-h-screen">
-          <header className="mb-12 text-center">
-              <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
-              Panel Docente
-              </h1>
-              <p className="text-xl text-zinc-500 dark:text-zinc-400">
-              Gestiona el curso, sprints y equipos.
-              </p>
-          </header>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-12">
-              <Link href="/sprints" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-blue-500 hover:shadow-md transition-all group">
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Gestionar Sprints</h2>
-                  <p className="text-zinc-500 dark:text-zinc-400">Crea, edita y administra los sprints y entregas del curso.</p>
-              </Link>
-              
-              <Link href="/teams" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-purple-500 hover:shadow-md transition-all group">
-                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Gestionar Equipos</h2>
-                  <p className="text-zinc-500 dark:text-zinc-400">Organiza a los estudiantes en equipos de trabajo.</p>
-              </Link>
-
-              <Link href="/reviews" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-green-500 hover:shadow-md transition-all group">
-                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Revisiones</h2>
-                  <p className="text-zinc-500 dark:text-zinc-400">Gestiona los turnos de revisión para los estudiantes.</p>
-              </Link>
-
-              <Link href="/inquiries" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-orange-500 hover:shadow-md transition-all group">
-                  <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Consultas</h2>
-                  <p className="text-zinc-500 dark:text-zinc-400">Responde dudas y gestiona las consultas del curso.</p>
-              </Link>
-              <Link href="/dashboard-cursada" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500 hover:shadow-md transition-all group">
-                  <div className="w-12 h-12 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M7 6h10M7 18h10" /></svg>
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Dashboard Cursada</h2>
-                  <p className="text-zinc-500 dark:text-zinc-400">Consulta el estado de aprobacion de cada alumno por sprint.</p>
-              </Link>
-              <Link href="/dashboard" className="block p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-indigo-500 hover:shadow-md transition-all group">
-                  <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2 text-zinc-900 dark:text-white">Dashboard</h2>
-                  <p className="text-zinc-500 dark:text-zinc-400">Visualiza métricas y progreso del curso sprint a sprint.</p>
-              </Link>
-          </div>
-      </div>
-    );
-  }
-
-  // 3. Guest View
-  let sprints: Sprint[] = [];
-  let error = null;
-
-  try {
-    sprints = await getSprints();
-  } catch (e) {
-    console.error("Error fetching sprints:", e);
-    error = "No se pudieron cargar los sprints. Asegúrate de que la colección 'sprints' exista y sea pública.";
-  }
-
-  return (
-    <div className="container mx-auto p-8 min-h-screen">
-      <header className="mb-12 text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
-          Curso de Node.js
-        </h1>
-        <p className="text-xl text-zinc-500 dark:text-zinc-400">
-          Domina el backend con Node.js, paso a paso.
-        </p>
-      </header>
-
-      {error ? (
-        <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
-          <span className="font-medium">Error:</span> {error}
-        </div>
-      ) : sprints.length === 0 ? (
-        <div className="text-center py-10">
-             <p className="text-xl text-zinc-500">No hay sprints disponibles todavía.</p>
-        </div>
-      ) : (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sprints.map((sprint) => (
-                  <Link 
-                    href={`/sprints/${sprint.id}`} 
-                    key={sprint.id} 
-                    className="group block p-6 bg-white dark:bg-zinc-900 rounded-xl shadow-sm hover:shadow-md transition-all border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
-                        Sprint
-                      </span>
-                      {(sprint.startDate || sprint.endDate) && (
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400 flex gap-1">
-                          {sprint.startDate && <FormattedDate date={sprint.startDate} />} 
-                          {sprint.startDate && sprint.endDate && " - "}
-                          {sprint.endDate && <FormattedDate date={sprint.endDate} />}
-                        </span>
-                      )}
-                    </div>
-                    <h2 className="text-2xl font-bold mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                      {sprint.title}
-                    </h2>
-                    <p className="text-zinc-600 dark:text-zinc-400 line-clamp-3">
-                      {sprint.description}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-      )}
-    </div>
-  );
+  if (user.role === "estudiante") return <StudentHome user={user} cohort={cohort} pb={pb} canSwitchCohorts={cohorts.length > 1} />;
+  if (user.role === "admin") return <AdminHome user={user} cohort={cohort} pb={pb} cohortCount={cohorts.length} />;
+  return <TeacherHome user={user} cohort={cohort} pb={pb} />;
 }
+
+async function StudentHome({ user, cohort, pb, canSwitchCohorts }: { user: User; cohort: Cohort | null; pb: PocketBase; canSwitchCohorts: boolean }) {
+  if (!cohort) return <HomeFrame><PageHeader eyebrow="Inicio" title={`Hola, ${firstName(user)}`} description="Tu espacio personal de cursada." /><EmptyState title="Todavía no tenés una cohorte asignada" description="Cuando se confirme tu matrícula, vas a encontrar aquí tus próximas actividades." /></HomeFrame>;
+  const weekly = cohort.mode === "weekly"; const scope = weekly ? "assignment.week.cohort" : "assignment.sprint.cohort";
+  const [assignments, deliveries, pendingInquiries, recentInquiries, reviews, nextContent] = await Promise.all([
+    pb.collection("assignments").getFullList<Assignment>({ filter: pb.filter(`${weekly ? "week.cohort" : "sprint.cohort"} = {:cohort}`, { cohort: cohort.id }) }).catch(() => []),
+    pb.collection("deliveries").getFullList<Delivery>({ filter: pb.filter(`student = {:student} && ${scope} = {:cohort}`, { student: user.id, cohort: cohort.id }) }).catch(() => []),
+    count(pb, "inquiries", pb.filter("cohort = {:cohort} && status = 'Pendiente'", { cohort: cohort.id })),
+    pb.collection("inquiries").getList<Inquiry>(1, 3, { filter: pb.filter("cohort = {:cohort}", { cohort: cohort.id }), sort: "-created" }).then(result => result.items).catch(() => []),
+    weekly ? Promise.resolve([] as Review[]) : pb.collection("reviews").getFullList<Review>({ filter: pb.filter("student = {:student} && sprint.cohort = {:cohort} && status = 'pending'", { student: user.id, cohort: cohort.id }), sort: "startTime" }).catch(() => []),
+    weekly ? pb.collection("weeks").getList<Week>(1, 1, { filter: pb.filter("cohort = {:cohort} && publicationStatus = 'published'", { cohort: cohort.id }), sort: "number" }).then(result => result.items[0] || null).catch(() => null) : pb.collection("sprints").getList<Sprint>(1, 1, { filter: pb.filter("cohort = {:cohort}", { cohort: cohort.id }), sort: "startDate,created" }).then(result => result.items[0] || null).catch(() => null),
+  ]);
+  const delivered = new Set(deliveries.map(item => item.assignment)); const pendingAssignments = assignments.filter(item => !delivered.has(item.id)).length;
+  const nextHref = nextContent ? (weekly ? `/cohorts/${cohort.id}/weeks/${nextContent.id}` : `/cohorts/${cohort.id}/sprints/${nextContent.id}`) : `/cohorts/${cohort.id}`;
+  return <HomeFrame>
+    <PageHeader eyebrow={cohort.name} title={`Hola, ${firstName(user)}`} description="Retomá tu cursada desde el próximo paso y revisá lo que necesita atención." actions={canSwitchCohorts ? <LinkButton href="/cohorts" variant="secondary">Cambiar cohorte</LinkButton> : undefined} />
+    <section className="rounded-xl bg-gradient-to-r from-blue-700 to-indigo-700 p-6 text-white shadow-md sm:p-8"><Badge className="bg-white/15 text-white">Próximo paso</Badge><h2 className="mt-4 text-2xl font-bold">{nextContent?.title || (weekly ? "Revisar las semanas disponibles" : "Revisar los sprints disponibles")}</h2><p className="mt-2 max-w-2xl text-blue-100">Encontrá las clases, materiales y trabajos prácticos organizados en el orden de la cursada.</p><Link href={nextHref} className="mt-6 inline-flex min-h-11 items-center rounded-md bg-white px-4 py-2 font-semibold text-blue-800 hover:bg-blue-50">Continuar cursada →</Link></section>
+    <div className="grid gap-4 md:grid-cols-3"><HomeMetric label="Trabajos pendientes" value={pendingAssignments} description={pendingAssignments ? "Entregas que todavía podés completar" : "Estás al día con tus entregas"} href={weekly ? `/cohorts/${cohort.id}/weeks` : `/cohorts/${cohort.id}/sprints`} /><HomeMetric label="Consultas abiertas" value={pendingInquiries} description="Preguntas de tu cohorte que siguen activas" href={`/cohorts/${cohort.id}/inquiries`} /><HomeMetric label="Próxima revisión" value={reviews[0] ? formatDate(reviews[0].startTime) : "Sin turno"} description={reviews[0] ? "Tenés una revisión reservada" : "No hay una revisión próxima"} href={weekly ? `/cohorts/${cohort.id}` : `/cohorts/${cohort.id}/reviews`} /></div>
+    {recentInquiries.length > 0 && <section><div className="flex items-center justify-between gap-4"><h2 className="text-lg font-bold">Actividad reciente en consultas</h2><Link href={`/cohorts/${cohort.id}/inquiries`} className="text-sm font-semibold text-primary">Ver todas</Link></div><div className="mt-3 grid gap-3">{recentInquiries.map(inquiry => <Link key={inquiry.id} href={`/cohorts/${cohort.id}/inquiries/${inquiry.id}`} className="flex items-center justify-between gap-4 rounded-md border bg-surface p-4 hover:border-primary"><div className="min-w-0"><p className="truncate font-semibold">{inquiry.title}</p><p className="mt-1 text-xs text-muted">Actualizada {formatDate(inquiry.updated || inquiry.created)}</p></div><Badge variant={inquiry.status === "Resuelta" ? "success" : "warning"}>{inquiry.status}</Badge></Link>)}</div></section>}
+  </HomeFrame>;
+}
+
+async function TeacherHome({ user, cohort, pb }: { user: User; cohort: Cohort | null; pb: PocketBase }) {
+  if (!cohort) return <HomeFrame><PageHeader eyebrow="Panel docente" title={`Hola, ${firstName(user)}`} /><EmptyState title="No hay cohortes disponibles" description="Solicitá acceso a una cohorte para comenzar a gestionarla." /></HomeFrame>;
+  const weekly = cohort.mode === "weekly";
+  const [students, assignments, deliveries, inquiries, reviews, requests, followUp] = await Promise.all([
+    count(pb, "cohort_enrollments", pb.filter("cohort = {:cohort} && status = 'active'", { cohort: cohort.id })),
+    count(pb, "assignments", pb.filter(`${weekly ? "week.cohort" : "sprint.cohort"} = {:cohort}`, { cohort: cohort.id })),
+    count(pb, "deliveries", pb.filter(`${weekly ? "assignment.week.cohort" : "assignment.sprint.cohort"} = {:cohort}`, { cohort: cohort.id })),
+    count(pb, "inquiries", pb.filter("cohort = {:cohort} && status = 'Pendiente'", { cohort: cohort.id })),
+    weekly ? Promise.resolve(0) : count(pb, "reviews", pb.filter("sprint.cohort = {:cohort} && status = 'pending'", { cohort: cohort.id })),
+    count(pb, "enrollment_requests", pb.filter("cohort = {:cohort} && status = 'pending'", { cohort: cohort.id })),
+    weekly ? Promise.resolve(0) : count(pb, "student_surveys", pb.filter("sprint.cohort = {:cohort} && futurePlan = 'contact_teacher'", { cohort: cohort.id })),
+  ]);
+  const missing = Math.max(0, students * assignments - deliveries);
+  return <HomeFrame><PageHeader eyebrow="Panel docente" title={`Hola, ${firstName(user)}`} description={`Resumen operativo de ${cohort.name}.`} actions={<LinkButton href="/cohorts" variant="secondary">Cambiar cohorte</LinkButton>} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><HomeMetric label="Consultas pendientes" value={inquiries} description="Requieren respuesta o resolución" href={`/cohorts/${cohort.id}/inquiries`} priority={inquiries > 0} /><HomeMetric label="Entregas faltantes" value={missing} description={`${deliveries} entregas registradas`} href={`/cohorts/${cohort.id}/dashboard`} /><HomeMetric label="Próximas revisiones" value={reviews} description="Turnos pendientes de la cohorte" href={weekly ? `/cohorts/${cohort.id}` : `/cohorts/${cohort.id}/reviews`} /><HomeMetric label="Solicitudes" value={requests} description="Esperan verificación de acceso" href="/staff/enrollment-requests" priority={requests > 0} /></div>{followUp > 0 && <Card className="border-warning/30"><CardContent><Badge variant="warning">Seguimiento</Badge><h2 className="mt-3 text-xl font-bold">{followUp} estudiante{followUp === 1 ? "" : "s"} solicitó contacto docente</h2><LinkButton href={`/cohorts/${cohort.id}/dashboard?detail=follow-up`} className="mt-4" variant="secondary">Abrir seguimiento</LinkButton></CardContent></Card>}<QuickLinks cohort={cohort} /></HomeFrame>;
+}
+
+async function AdminHome({ user, cohort, pb, cohortCount }: { user: User; cohort: Cohort | null; pb: PocketBase; cohortCount: number }) {
+  const [users, activeEnrollments, requests] = await Promise.all([count(pb, "users", ""), count(pb, "cohort_enrollments", "status = 'active'"), count(pb, "enrollment_requests", "status = 'pending'")]);
+  return <HomeFrame><PageHeader eyebrow="Administración" title={`Hola, ${firstName(user)}`} description="Estado general de la plataforma y accesos directos a las operaciones frecuentes." /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><HomeMetric label="Cohortes" value={cohortCount} description="Activas y archivadas accesibles" href="/admin/cohorts" /><HomeMetric label="Usuarios" value={users} description="Cuentas registradas" href="/admin/users" /><HomeMetric label="Matrículas activas" value={activeEnrollments} description="En todas las cohortes" href="/admin/users?status=active" /><HomeMetric label="Solicitudes pendientes" value={requests} description="Requieren una decisión" href="/staff/enrollment-requests" priority={requests > 0} /></div><div className="grid gap-5 lg:grid-cols-2"><ActionCard title="Gestionar cohortes" description="Creá cursadas, actualizá su configuración y administrá matrículas." href="/admin/cohorts" action="Abrir cohortes" /><ActionCard title="Gestionar usuarios" description="Buscá personas, revisá sus inscripciones y actualizá roles." href="/admin/users" action="Abrir usuarios" /></div>{cohort && <QuickLinks cohort={cohort} />}</HomeFrame>;
+}
+
+function HomeFrame({ children }: { children: ReactNode }) { return <main className="mx-auto w-full max-w-[var(--content-dashboard)] space-y-8 px-4 py-8 lg:px-8">{children}</main>; }
+function HomeMetric({ label, value, description, href, priority = false }: { label: string; value: number | string; description: string; href: string; priority?: boolean }) { return <Link href={href} className={`rounded-lg border bg-surface p-5 shadow-sm transition hover:border-primary hover:shadow-md ${priority ? "border-warning/50" : ""}`}><p className="text-sm font-medium text-muted">{label}</p><p className="mt-2 text-3xl font-bold">{value}</p><p className="mt-2 text-sm text-muted">{description}</p></Link>; }
+function ActionCard({ title, description, href, action }: { title: string; description: string; href: string; action: string }) { return <Card><CardContent><h2 className="text-xl font-bold">{title}</h2><p className="mt-2 text-sm leading-6 text-muted">{description}</p><LinkButton href={href} variant="secondary" className="mt-5">{action}</LinkButton></CardContent></Card>; }
+function QuickLinks({ cohort }: { cohort: Cohort }) { const content = cohort.mode === "weekly" ? `/cohorts/${cohort.id}/weeks` : `/cohorts/${cohort.id}/sprints`; return <section><h2 className="text-lg font-bold">Accesos de {cohort.name}</h2><div className="mt-3 flex flex-wrap gap-3"><LinkButton href={content} variant="secondary">Contenido</LinkButton><LinkButton href={`/cohorts/${cohort.id}/inquiries`} variant="secondary">Consultas</LinkButton><LinkButton href={`/cohorts/${cohort.id}/dashboard`} variant="secondary">Tablero</LinkButton></div></section>; }
+async function count(pb: PocketBase, collection: string, filter: string) { return pb.collection(collection).getList(1, 1, { filter }).then(result => result.totalItems).catch(() => 0); }
+function firstName(user: User) { return user.firstName || user.name?.trim().split(/\s+/)[0] || ""; }
+function formatDate(value: string) { return new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }

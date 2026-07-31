@@ -1,22 +1,30 @@
-import { getSprint, getClasses, getAssignments } from "@/lib/data";
+import { getSprint, getClasses, getAssignments, getSprintCohortId } from "@/lib/data";
 import { Sprint, Class, Assignment } from "@/types";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import FormattedDate from "@/components/FormattedDate";
 import { getCurrentUser } from "@/lib/pocketbase-server";
 import SprintDetailsManagement from "@/components/SprintDetailsManagement";
+import { requireCohortAccess } from "@/lib/cohorts/access";
+import { appendSearchParams, cohortPath, requireMatchingCohort } from "@/lib/cohorts/route-compatibility";
 
 export const dynamic = 'force-dynamic';
 
-export default async function SprintPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SprintPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ cohortId?: string; manage?: string }> }) {
   const { id } = await params;
+  const query = await searchParams;
+  const entityCohortId = await getSprintCohortId(id).catch(() => notFound());
+  const cohortId = requireMatchingCohort(entityCohortId, query.cohortId);
+  if (!cohortId) notFound();
+  await requireCohortAccess(cohortId, { capability: "sprints" });
+  if (query.manage !== "1") redirect(appendSearchParams(cohortPath(cohortId, `/sprints/${id}`), query, ["cohortId", "manage"]));
   let sprint: Sprint | null = null;
   let classes: Class[] = [];
   let assignments: Assignment[] = [];
   const user = await getCurrentUser();
   
   try {
-    sprint = await getSprint(id);
+    sprint = await getSprint(id, cohortId);
     if (!sprint) {
       notFound();
     }
@@ -57,7 +65,8 @@ export default async function SprintPage({ params }: { params: Promise<{ id: str
       {isAuthorized ? (
         <SprintDetailsManagement 
           user={user} 
-          sprintId={sprint.id} 
+          sprintId={sprint.id}
+          cohortId={cohortId}
           classes={classes} 
           assignments={assignments} 
         />

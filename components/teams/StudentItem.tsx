@@ -5,9 +5,12 @@ import { User } from '@/types';
 
 interface StudentItemProps {
   student: User;
+  teamId?: string;
+  teamOptions?: Array<{ id: string; name: string }>;
+  onMove?: (teamId: string) => void;
 }
 
-export function StudentItem({ student }: StudentItemProps) {
+export function StudentItem({ student, teamId, teamOptions, onMove }: StudentItemProps) {
   const {
     attributes,
     listeners,
@@ -39,10 +42,11 @@ export function StudentItem({ student }: StudentItemProps) {
       <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-100 shrink-0">
         <img src={avatarUrl} alt={student.name} className="w-full h-full object-cover" />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{student.name}</p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{student.email}</p>
       </div>
+      {teamOptions && onMove && <label className="shrink-0"><span className="sr-only">Mover a {student.name}</span><select aria-label={`Equipo de ${student.name}`} value={teamId} onChange={(event) => onMove(event.target.value)} onPointerDown={(event) => event.stopPropagation()} className="max-w-28 rounded-md border bg-surface px-2 py-1 text-xs">{teamOptions.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>}
     </div>
   );
 }

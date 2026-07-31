@@ -5,6 +5,7 @@ import { Sprint, User } from "@/types";
 import SprintForm from "./SprintForm";
 import { deleteSprint } from "@/lib/actions";
 import { useRouter } from "next/navigation";
+import { Dialog } from "./ui";
 
 interface SprintManagementProps {
   user: User;
@@ -41,19 +42,8 @@ export default function SprintManagement({ user, sprints }: SprintManagementProp
         </button>
       </div>
 
-      {/* Modal for Creating */}
-      {isCreating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <SprintForm onClose={() => setIsCreating(false)} />
-        </div>
-      )}
-
-      {/* Modal for Editing */}
-      {editingSprint && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <SprintForm sprint={editingSprint} onClose={() => setEditingSprint(null)} />
-        </div>
-      )}
+      <Dialog open={isCreating} onOpenChange={setIsCreating} title="Nuevo sprint"><SprintForm onClose={() => setIsCreating(false)} /></Dialog>
+      {editingSprint && <Dialog open onOpenChange={open => { if (!open) setEditingSprint(null); }} title="Editar sprint"><SprintForm sprint={editingSprint} onClose={() => setEditingSprint(null)} /></Dialog>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sprints.map((sprint) => (
@@ -63,7 +53,7 @@ export default function SprintManagement({ user, sprints }: SprintManagementProp
           >
             <div 
                className="p-6 flex-grow cursor-pointer"
-               onClick={() => router.push(`/sprints/${sprint.id}`)}
+               onClick={() => sprint.cohort && router.push(`/cohorts/${sprint.cohort}/sprints/${sprint.id}`)}
             >
               <div className="flex items-center justify-between mb-4">
                 <span className="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">

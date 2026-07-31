@@ -24,6 +24,19 @@ export async function createServerClient() {
   return serverPb;
 }
 
+export async function createAdminServerClient() {
+  const url = process.env['NEXT_PUBLIC_POCKETBASE_URL'];
+  const email = process.env['POCKETBASE_ADMIN_EMAIL'];
+  const password = process.env['POCKETBASE_ADMIN_PASSWORD'];
+  if (!url || !email || !password) {
+    throw new Error("Falta la configuración administrativa de PocketBase en el servidor.");
+  }
+  const adminPb = new PocketBase(url);
+  adminPb.autoCancellation(false);
+  await adminPb.collection('_superusers').authWithPassword(email, password, { requestKey: null });
+  return adminPb;
+}
+
 export async function getCurrentUser() {
   const pb = await createServerClient();
   if (!pb.authStore.isValid) return null;

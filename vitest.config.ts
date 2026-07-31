@@ -1,0 +1,12 @@
+import { defineConfig } from "vitest/config";
+import { fileURLToPath, URL } from "node:url";
+
+export default defineConfig({
+  resolve: { alias: { "@": fileURLToPath(new URL("./", import.meta.url)) } },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./test/setup.ts"],
+    include: ["components/ui/**/*.test.tsx", "components/shell/**/*.test.tsx", "components/cohorts/**/*.test.tsx", "app/theme.test.ts", "lib/navigation.test.ts"],
+  },
+});

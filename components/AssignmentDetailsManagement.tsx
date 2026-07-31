@@ -8,15 +8,17 @@ import { useRouter } from "next/navigation";
 import AssignmentForm from "./AssignmentForm";
 import LinkForm from "./LinkForm";
 import InquiryList from "./inquiries/InquiryList";
+import { Dialog } from "./ui";
 
 interface AssignmentDetailsManagementProps {
   user: User;
+  cohortId: string;
   assignment: Assignment;
   links: LinkType[];
   inquiries: Inquiry[];
 }
 
-export default function AssignmentDetailsManagement({ user, assignment, links, inquiries }: AssignmentDetailsManagementProps) {
+export default function AssignmentDetailsManagement({ user, cohortId, assignment, links, inquiries }: AssignmentDetailsManagementProps) {
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [editingLink, setEditingLink] = useState<LinkType | null>(null);
@@ -33,7 +35,7 @@ export default function AssignmentDetailsManagement({ user, assignment, links, i
   return (
     <>
       <div className="mb-8">
-          <Link href={`/sprints/${assignment.sprint}`} className="text-blue-500 hover:underline inline-block">&larr; Volver al Sprint</Link>
+          <Link href={assignment.week ? `/cohorts/${cohortId}/weeks/${assignment.week}?section=assignments` : `/cohorts/${cohortId}/sprints/${assignment.sprint}?section=assignments`} className="text-blue-500 hover:underline inline-block">&larr; Volver al contenido</Link>
       </div>
 
       <header className="mb-12 relative group">
@@ -125,27 +127,12 @@ export default function AssignmentDetailsManagement({ user, assignment, links, i
 
       <div className="space-y-6 mt-12">
         <h2 className="text-2xl font-bold mb-4">Consultas</h2>
-        <InquiryList inquiries={inquiries} currentUser={user} context={{ assignmentId: assignment.id }} />
+        <InquiryList inquiries={inquiries} currentUser={user} context={{ cohortId, weekId: assignment.week, assignmentId: assignment.id, basePath: `/cohorts/${cohortId}/inquiries` }} />
       </div>
 
-      {/* Modals */}
-      {isEditingAssignment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <AssignmentForm sprintId={assignment.sprint} assignment={assignment} onClose={() => setIsEditingAssignment(false)} />
-        </div>
-      )}
-
-      {isCreatingLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <LinkForm assignmentId={assignment.id} onClose={() => setIsCreatingLink(false)} />
-        </div>
-      )}
-
-      {editingLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <LinkForm assignmentId={assignment.id} link={editingLink} onClose={() => setEditingLink(null)} />
-        </div>
-      )}
+      <Dialog open={isEditingAssignment} onOpenChange={setIsEditingAssignment} title="Editar trabajo práctico" className="w-[min(52rem,calc(100%-2rem))]"><AssignmentForm sprintId={assignment.sprint} assignment={assignment} onClose={() => setIsEditingAssignment(false)} /></Dialog>
+      <Dialog open={isCreatingLink} onOpenChange={setIsCreatingLink} title="Agregar enlace" description="Vinculá documentación o recursos para la entrega."><LinkForm assignmentId={assignment.id} onClose={() => setIsCreatingLink(false)} /></Dialog>
+      {editingLink && <Dialog open onOpenChange={open => { if (!open) setEditingLink(null); }} title="Editar enlace"><LinkForm assignmentId={assignment.id} link={editingLink} onClose={() => setEditingLink(null)} /></Dialog>}
     </>
   );
 }

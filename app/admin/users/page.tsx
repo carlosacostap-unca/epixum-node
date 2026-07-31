@@ -1,57 +1,24 @@
-import { getUsers } from "@/lib/data";
-import { getCurrentUser } from "@/lib/pocketbase-server";
-import { User } from "@/types";
-import { redirect } from "next/navigation";
 import UserRoleSelect from "@/components/UserRoleSelect";
+import { requireAdmin } from "@/lib/cohorts/access";
+import { createAdminServerClient } from "@/lib/pocketbase-server";
+import type { Cohort, CohortEnrollment, StudentAdmission, User } from "@/types";
+import { Badge, Button, Card, CardContent, EmptyState, Input, LinkButton, PageHeader, Select } from "@/components/ui";
+import { filterAndSortAdminUsers } from "@/lib/admin-users";
 
-export const dynamic = 'force-dynamic';
-
-export default async function AdminUsersPage() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser || currentUser.role !== 'admin') {
-    redirect('/');
-  }
-
-  const users = await getUsers();
-
-  return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">Administración de Usuarios</h1>
-      <div className="bg-white dark:bg-zinc-800 rounded-lg shadow overflow-hidden border border-zinc-200 dark:border-zinc-700">
-        <table className="w-full text-left text-sm text-zinc-500 dark:text-zinc-400">
-          <thead className="bg-zinc-50 dark:bg-zinc-900 text-xs uppercase font-medium">
-            <tr>
-              <th className="px-6 py-4">Usuario</th>
-              <th className="px-6 py-4">Email</th>
-              <th className="px-6 py-4">Rol</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-            {users.map((user: User) => (
-              <tr key={user.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <td className="px-6 py-4 font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-3">
-                  {user.avatar ? (
-                    <img
-                      src={`${process.env.NEXT_PUBLIC_POCKETBASE_URL}/api/files/_pb_users_auth_/${user.id}/${user.avatar}`}
-                      alt={user.name}
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-500 dark:text-zinc-400">
-                      {user.name?.[0] || user.email[0]}
-                    </div>
-                  )}
-                  {user.name || "Sin nombre"}
-                </td>
-                <td className="px-6 py-4">{user.email}</td>
-                <td className="px-6 py-4">
-                  <UserRoleSelect user={user} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+export const dynamic = "force-dynamic";
+type Query = { search?: string; role?: string; cohort?: string; status?: string; order?: string; user?: string };
+export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<Query> }) {
+  await requireAdmin(); const query = await searchParams; const pb = await createAdminServerClient(); const [cohorts, users, enrollments, admissions] = await Promise.all([pb.collection("cohorts").getFullList<Cohort>({ sort: "name" }), pb.collection("users").getFullList<User>({ sort: "name,email" }), pb.collection("cohort_enrollments").getFullList<CohortEnrollment>({ expand: "cohort,user", sort: "-status,-enrolledAt" }), pb.collection("student_admissions").getFullList<StudentAdmission>({ expand: "cohort" })]);
+  const byUser = new Map<string, CohortEnrollment[]>(); enrollments.forEach((item) => byUser.set(item.user, [...(byUser.get(item.user) || []), item]));
+  const visible = filterAndSortAdminUsers(users, byUser, query);
+  const focused = query.user ? users.find((user) => user.id === query.user) : undefined; const focusedEnrollments = focused ? byUser.get(focused.id) || [] : []; const focusedAdmissions = focused ? admissions.filter((item) => item.claimedBy === focused.id || item.normalizedEmail === focused.email.toLocaleLowerCase()) : [];
+  const current = new URLSearchParams(); Object.entries(query).forEach(([key, value]) => { if (value && key !== "user") current.set(key, value); }); const userHref = (id: string) => { const next = new URLSearchParams(current); next.set("user", id); return `/admin/users?${next}`; };
+  return <div className="space-y-8"><PageHeader eyebrow="Administración" title="Usuarios" description={`${visible.length} de ${users.length} usuarios coinciden con los criterios.`} />
+    <form className="grid gap-4 rounded-lg border bg-surface p-4 sm:grid-cols-2 xl:grid-cols-6"><Input name="search" label="Buscar" type="search" defaultValue={query.search} placeholder="Nombre, correo o DNI" /><Select name="role" label="Rol" defaultValue={query.role || ""}><option value="">Todos</option><option value="estudiante">Estudiante</option><option value="docente">Docente</option><option value="admin">Administrador</option></Select><Select name="cohort" label="Cohorte" defaultValue={query.cohort || ""}><option value="">Todas</option>{cohorts.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><Select name="status" label="Matrícula" defaultValue={query.status || ""}><option value="">Todas</option><option value="active">Activa</option><option value="completed">Finalizada</option></Select><Select name="order" label="Orden" defaultValue={query.order || "name"}><option value="name">Nombre</option><option value="email">Correo</option><option value="role">Rol</option></Select><Button type="submit" className="self-end">Aplicar</Button></form>
+    {focused && <Card className="border-primary"><CardContent className="p-6"><div className="flex flex-col gap-5 lg:flex-row lg:justify-between"><div><p className="text-sm font-semibold text-primary">Detalle de usuario</p><h2 className="mt-1 text-2xl font-bold">{focused.name || focused.email}</h2><p className="text-muted">{focused.email}</p><dl className="mt-5 grid gap-3 sm:grid-cols-3"><Data label="DNI" value={focused.dni || "Sin informar"} /><Data label="Teléfono" value={focused.phone || "Sin informar"} /><Data label="Nacimiento" value={focused.birthDate?.slice(0, 10) || "Sin informar"} /></dl></div><div className="w-full lg:w-72"><UserRoleSelect user={focused} /></div></div><div className="mt-6 grid gap-5 lg:grid-cols-2"><RecordList title="Matrículas" items={focusedEnrollments.map((item) => `${item.expand?.cohort?.name} · ${item.status} · ${item.entryType}`)} /><RecordList title="Admisiones" items={focusedAdmissions.map((item) => `${item.expand?.cohort?.name} · ${item.status}`)} /></div><LinkButton href={`/admin/users${current.size ? `?${current}` : ""}`} variant="secondary" className="mt-5">Cerrar detalle</LinkButton></CardContent></Card>}
+    {!visible.length ? <EmptyState title="No hay usuarios que coincidan" description="Modificá los filtros para ampliar el resultado." /> : <><div className="hidden overflow-hidden rounded-lg border md:block"><table className="w-full text-left text-sm"><thead className="bg-surface-muted"><tr><th className="p-4">Usuario</th><th className="p-4">Rol</th><th className="p-4">Matrículas</th><th className="p-4"><span className="sr-only">Acciones</span></th></tr></thead><tbody>{visible.map((user) => <tr key={user.id} className="border-t"><td className="p-4"><p className="font-semibold">{user.name || "Sin nombre"}</p><p className="text-muted">{user.email}</p></td><td className="p-4"><Badge>{roleLabel(user.role)}</Badge></td><td className="p-4">{(byUser.get(user.id) || []).length}</td><td className="p-4 text-right"><LinkButton href={userHref(user.id)} variant="secondary" size="sm">Ver detalle</LinkButton></td></tr>)}</tbody></table></div><div className="grid gap-3 md:hidden">{visible.map((user) => <Card key={user.id}><CardContent className="p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{user.name || "Sin nombre"}</p><p className="break-all text-sm text-muted">{user.email}</p></div><Badge>{roleLabel(user.role)}</Badge></div><p className="mt-3 text-sm">{(byUser.get(user.id) || []).length} matrículas</p><LinkButton href={userHref(user.id)} variant="secondary" size="sm" className="mt-4 w-full">Ver detalle</LinkButton></CardContent></Card>)}</div></>}
+  </div>;
 }
+function Data({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs font-semibold text-muted">{label}</dt><dd className="mt-1">{value}</dd></div>; }
+function RecordList({ title, items }: { title: string; items: string[] }) { return <section><h3 className="font-bold">{title}</h3>{items.length ? <ul className="mt-2 space-y-2">{items.map((item) => <li key={item} className="rounded-md bg-surface-muted p-3 text-sm">{item}</li>)}</ul> : <p className="mt-2 text-sm text-muted">Sin registros.</p>}</section>; }
+function roleLabel(role: User["role"]) { return role === "admin" ? "Administrador" : role === "docente" ? "Docente" : "Estudiante"; }

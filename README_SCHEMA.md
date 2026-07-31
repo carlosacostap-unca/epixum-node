@@ -145,6 +145,42 @@ Para que el rol "Docente" pueda gestionar el contenido, debes configurar las sig
     - **Update**: `author = @request.auth.id || @request.auth.role = "docente" || @request.auth.role = "admin"`
     - **Delete**: `author = @request.auth.id || @request.auth.role = "docente" || @request.auth.role = "admin"`
 
+## Cohortes y modalidad semanal
+
+La aplicación soporta dos modalidades que no se mezclan:
+
+- `sprints_and_teams`: modalidad histórica con sprints, equipos, chat, revisiones y encuestas.
+- `weekly`: modalidad por semanas, sin equipos, revisiones ni encuestas.
+
+Colecciones agregadas:
+
+- `cohorts`: `name`, `slug` único, `mode`, `status` y fechas informativas.
+- `cohort_enrollments`: relación única `(user, cohort)`, estado `active|completed`, condición `new|repeater` y fechas.
+- `student_admissions`: nombre, correo normalizado, cohorte, condición y estado `pending|claimed|cancelled`; sólo puede existir una admisión pendiente por correo/cohorte.
+- `weeks`: número único por cohorte, título, descripción, fechas informativas, `publicationStatus` y `publishedAt`.
+
+`sprints`, `teams` e `inquiries` requieren una cohorte. `classes` y `assignments` deben tener exactamente uno de `sprint` o `week`. Las consultas pueden guardar `week` como contexto opcional compatible.
+
+Las reglas definitivas permiten a docentes y administradores operar en sus módulos, y a estudiantes leer sólo cohortes inscriptas. El contenido semanal es visible para estudiantes únicamente cuando la semana está publicada; entregas, consultas y respuestas nuevas requieren inscripción activa.
+
+## Procedimiento de despliegue
+
+1. Inspeccionar sin escribir: `npm run schema:cohorts`.
+2. Crear el esquema de transición: `npm run schema:cohorts -- --apply`.
+3. Auditar el legado: `npm run migrate:cohorts -- --legacy-slug nodejs-legacy`.
+4. Ejecutar el backfill idempotente: `npm run migrate:cohorts -- --legacy-slug nodejs-legacy --apply`.
+5. Repetir el comando sin `--apply`; debe informar cero operaciones y conservar todos los conteos.
+6. Revisar reglas finales: `npm run schema:harden`.
+7. Aplicarlas: `npm run schema:harden -- --apply` y repetir el dry-run hasta obtener `changed: false`.
+
+Los scripts no borran registros. El endurecimiento conserva una copia en memoria de cada colección y revierte las colecciones ya actualizadas si PocketBase rechaza alguna regla. Para rollback de aplicación, volver a desplegar la versión anterior; no se deben eliminar las nuevas relaciones ni la cohorte heredada porque ya forman parte de la resolución de datos históricos.
+
+## Alta de alumnos
+
+Desde `/admin/users` o `/admin/cohorts/[cohortId]`, el administrador registra únicamente nombre, correo de Google, cohorte y condición (nuevo o recursante). Si el correo ya pertenece a un usuario, se crea o reactiva su inscripción sin duplicar la cuenta. En caso contrario se crea una admisión pendiente, que se reclama de forma idempotente en el primer acceso con Google.
+
+Una cuenta de Google sin usuario inscripto ni admisión pendiente recibe: “Tu cuenta no está registrada. Contactá a la administración del curso.” La sesión se limpia y no puede leer información académica.
+
 ## Datos de Ejemplo
 Una vez creadas las colecciones y configuradas las reglas, puedes añadir algunos registros de prueba:
 

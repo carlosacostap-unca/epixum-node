@@ -1,82 +1,23 @@
-"use client";
-
-import { Inquiry, User } from "@/types";
 import Link from "next/link";
-import FormattedDate from "../FormattedDate";
+import type { Inquiry, User } from "@/types";
+import { Badge, Card, CardContent } from "@/components/ui";
 
-interface InquiryCardProps {
-  inquiry: Inquiry;
-  currentUser: User | null;
+export default function InquiryCard({ inquiry, currentUser, basePath }: { inquiry: Inquiry; currentUser: User | null; basePath?: string }) {
+  const resolved = inquiry.status === "Resuelta";
+  const author = inquiry.author === currentUser?.id ? "Vos" : inquiry.expand?.author?.name || "Usuario";
+  const context = inquiry.expand?.class?.title || inquiry.expand?.assignment?.title || inquiry.expand?.week?.title || "Consulta general";
+  const href = basePath?.includes("/cohorts/") ? `${basePath}/${inquiry.id}` : `/inquiries/${inquiry.id}`;
+  return <Link href={href} className="group block rounded-lg focus:outline-none">
+    <Card className={`h-full transition group-hover:border-primary group-hover:shadow-md ${resolved ? "opacity-80" : "border-warning/30"}`}>
+      <CardContent className="flex h-full flex-col p-5">
+        <div className="flex items-start justify-between gap-3"><Badge variant={resolved ? "success" : "warning"}>{inquiry.status}</Badge><time className="text-xs text-muted" dateTime={inquiry.created}>{formatDate(inquiry.created)}</time></div>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-primary">{context}</p>
+        <h3 className="mt-2 text-lg font-bold group-hover:text-primary">{inquiry.title}</h3>
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">{inquiry.description}</p>
+        <div className="mt-5 flex items-center justify-between gap-3 border-t pt-4 text-xs text-muted"><span>Por {author}</span><span className="font-semibold text-primary">Abrir conversación →</span></div>
+      </CardContent>
+    </Card>
+  </Link>;
 }
 
-export default function InquiryCard({ inquiry, currentUser }: InquiryCardProps) {
-  const isAuthor = currentUser?.id === inquiry.author;
-  const isTeacher = currentUser?.role === "docente" || currentUser?.role === "admin";
-  const isResolved = inquiry.status === "Resuelta";
-
-  return (
-    <Link
-      href={`/inquiries/${inquiry.id}`}
-      className={`block p-6 rounded-lg border transition-all hover:shadow-md ${
-        isResolved
-          ? "bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
-          : "bg-white dark:bg-zinc-800 border-blue-200 dark:border-blue-900/30 shadow-sm"
-      }`}
-    >
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex items-center gap-2">
-          <span
-            className={`px-2 py-1 text-xs font-bold rounded-full ${
-              isResolved
-                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-            }`}
-          >
-            {isResolved ? "Resuelta" : "Pendiente"}
-          </span>
-          {(inquiry.expand?.class || inquiry.expand?.assignment) && (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
-              En: 
-              {inquiry.expand?.class && <span className="font-medium truncate max-w-[150px]">{inquiry.expand.class.title}</span>}
-              {inquiry.expand?.assignment && <span className="font-medium truncate max-w-[150px]">{inquiry.expand.assignment.title}</span>}
-            </span>
-          )}
-        </div>
-        <span className="text-xs text-zinc-400">
-          <FormattedDate date={inquiry.created} />
-        </span>
-      </div>
-
-      <h3 className={`text-lg font-bold mb-2 ${isResolved ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-900 dark:text-zinc-100"}`}>
-        {inquiry.title}
-      </h3>
-
-      <p className="text-zinc-500 dark:text-zinc-400 text-sm line-clamp-2 mb-4">
-        {inquiry.description}
-      </p>
-
-      <div className="flex items-center justify-between mt-auto pt-4 border-t border-zinc-100 dark:border-zinc-700/50">
-        <div className="flex items-center gap-2">
-          {inquiry.expand?.author?.avatar ? (
-            <img
-              src={`${process.env.NEXT_PUBLIC_POCKETBASE_URL}/api/files/_pb_users_auth_/${inquiry.expand.author.id}/${inquiry.expand.author.avatar}`}
-              className="w-6 h-6 rounded-full object-cover"
-              alt=""
-            />
-          ) : (
-            <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-500">
-              {inquiry.expand?.author?.name?.charAt(0) || "?"}
-            </div>
-          )}
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {isAuthor ? "Tú" : inquiry.expand?.author?.name || "Usuario"}
-          </span>
-        </div>
-        
-        <span className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
-          Ver discusión &rarr;
-        </span>
-      </div>
-    </Link>
-  );
-}
+function formatDate(value: string) { return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" }).format(new Date(value)); }

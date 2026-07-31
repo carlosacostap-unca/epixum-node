@@ -9,6 +9,7 @@ interface UserProfileData {
   dni?: string;
   birthDate?: string;
   phone?: string;
+  avatar?: File;
 }
 
 export async function updateUserProfile(userId: string, data: UserProfileData) {
@@ -31,6 +32,7 @@ export async function updateUserProfile(userId: string, data: UserProfileData) {
       dni: data.dni,
       phone: data.phone,
     };
+    if (data.avatar?.size) updateData.avatar = data.avatar;
 
     // Handle birthDate
     if (data.birthDate) {

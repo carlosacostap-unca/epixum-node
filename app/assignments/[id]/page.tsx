@@ -1,33 +1,41 @@
-import { getAssignment, getLinks, getDeliveries, getUserDelivery } from "@/lib/data";
-import { Assignment, Link as LinkType, Delivery, Inquiry } from "@/types";
-import Link from "next/link";
-import { notFound } from "next/navigation";
+import { getAssignment, getAssignmentCohortId, getLinks, getDeliveries, getUserDelivery, getCohortStudents } from "@/lib/data";
+import { Assignment, Link as LinkType, Delivery, Inquiry, User } from "@/types";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/pocketbase-server";
 import AssignmentDetailsManagement from "@/components/AssignmentDetailsManagement";
 import StudentDelivery from "@/components/StudentDelivery";
 import TeacherDeliveries from "@/components/TeacherDeliveries";
 import { getInquiries } from "@/lib/actions-inquiries";
 import InquiryList from "@/components/inquiries/InquiryList";
+import { Badge, Card, CardContent, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { requireCohortAccess } from "@/lib/cohorts/access";
+import { appendSearchParams, cohortPath } from "@/lib/cohorts/route-compatibility";
 
 export const dynamic = 'force-dynamic';
 
-export default async function AssignmentPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AssignmentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ cohortId?: string; [key: string]: string | string[] | undefined }> }) {
   const { id } = await params;
+  const query = await searchParams;
+  const requestedCohortId = typeof query.cohortId === "string" ? query.cohortId : undefined;
   let assignment: Assignment;
+  let resolvedCohortId = "";
   let links: LinkType[] = [];
   let inquiries: Inquiry[] = [];
   const user = await getCurrentUser();
   let deliveries: Delivery[] = [];
+  let students: User[] = [];
   let userDelivery: Delivery | null = null;
   
   try {
     assignment = await getAssignment(id);
+    resolvedCohortId = await getAssignmentCohortId(assignment);
+    if (requestedCohortId && requestedCohortId !== resolvedCohortId) return notFound();
     links = await getLinks(id, 'assignment');
-    inquiries = await getInquiries({ assignmentId: id });
+    inquiries = await getInquiries({ cohortId: resolvedCohortId, assignmentId: id });
     
     if (user) {
         if (user.role === 'docente' || user.role === 'admin') {
-            deliveries = await getDeliveries(id);
+            [deliveries, students] = await Promise.all([getDeliveries(id), getCohortStudents(resolvedCohortId)]);
         } else if (user.role === 'estudiante') {
             userDelivery = await getUserDelivery(id, user.id);
         }
@@ -36,82 +44,92 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
     console.error(e);
     return notFound();
   }
+  if (!requestedCohortId) redirect(appendSearchParams(cohortPath(resolvedCohortId, `/assignments/${id}`), query, ["cohortId"]));
+  const access = await requireCohortAccess(resolvedCohortId);
 
   const isAuthorized = user && (user.role === 'docente' || user.role === 'admin');
 
   if (isAuthorized) {
     return (
         <div className="container mx-auto p-8 min-h-screen space-y-8">
-            <AssignmentDetailsManagement user={user} assignment={assignment} links={links} inquiries={inquiries} />
-            <TeacherDeliveries deliveries={deliveries} assignmentId={assignment.id} />
+            <AssignmentDetailsManagement user={user} cohortId={requestedCohortId!} assignment={assignment} links={links} inquiries={inquiries} />
+            <TeacherDeliveries deliveries={deliveries} students={students} assignmentId={assignment.id} />
         </div>
     );
   }
 
+  const parentHref = assignment.week
+    ? `/cohorts/${resolvedCohortId}/weeks/${assignment.week}?section=assignments`
+    : `/cohorts/${resolvedCohortId}/sprints/${assignment.sprint}?section=assignments`;
+
   return (
-    <div className="container mx-auto p-8 min-h-screen">
-      <Link href={`/sprints/${assignment.sprint}`} className="text-blue-500 hover:underline mb-8 inline-block">&larr; Volver al Sprint</Link>
-      
-      <header className="mb-12">
-        <div className="flex items-center gap-4 mb-2">
-            <span className="px-3 py-1 text-sm font-medium text-purple-600 bg-purple-100 rounded-full dark:bg-purple-900 dark:text-purple-200">
-                TP
-            </span>
-        </div>
-        <h1 className="text-3xl font-extrabold tracking-tight lg:text-4xl mb-4">
-          {assignment.title}
-        </h1>
-        <div 
-          className="prose dark:prose-invert max-w-3xl mb-8"
-          dangerouslySetInnerHTML={{ __html: assignment.description }}
-        />
-      </header>
+    <main className="mx-auto w-full max-w-[var(--content-reading)] space-y-8 px-4 py-8 lg:px-8">
+      <PageHeader
+        eyebrow={`${access.cohort.name} · Trabajo práctico`}
+        title={assignment.title}
+        description="Revisá tu estado y completá el siguiente paso antes de consultar la consigna y los recursos."
+        actions={<LinkButton href={parentHref} variant="secondary">Volver al contenido</LinkButton>}
+      />
 
-      <div className="space-y-6 mb-12">
-        <h2 className="text-2xl font-bold mb-4">Enlaces</h2>
-        
-        {links.length === 0 ? (
-          <p className="text-zinc-500">No hay enlaces disponibles para este trabajo práctico.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {links.map((link) => (
-              <a 
-                href={link.url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                key={link.id}
-                className="block p-6 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:shadow-lg transition-all group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                    <div>
-                        <h3 className="text-lg font-bold group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                        {link.title}
-                        </h3>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2 truncate max-w-[200px]">
-                            {link.url}
-                        </p>
-                    </div>
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                        LINK
-                    </span>
-                </div>
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-6 mb-12">
-        <h2 className="text-2xl font-bold mb-4">Consultas</h2>
-        <InquiryList inquiries={inquiries} currentUser={user} context={{ assignmentId: id }} />
-      </div>
-
-      {user && user.role === 'estudiante' && (
-        <StudentDelivery 
-            assignmentId={assignment.id} 
-            delivery={userDelivery} 
-        />
+      {user?.role === "estudiante" && (
+        <StudentDelivery assignmentId={assignment.id} delivery={userDelivery} canEdit={access.canMutateStudentWork} />
       )}
-    </div>
+
+      <section aria-labelledby="assignment-description-heading">
+        <Card>
+          <CardContent className="p-6 sm:p-8">
+            <Badge variant="info">Consigna</Badge>
+            <h2 id="assignment-description-heading" className="mt-4 text-2xl font-bold">Qué tenés que hacer</h2>
+            <div
+              className="prose mt-4 max-w-none text-foreground dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: assignment.description || "Todavía no se agregó una consigna para este trabajo." }}
+            />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section aria-labelledby="assignment-resources-heading">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-primary">Material de apoyo</p>
+            <h2 id="assignment-resources-heading" className="mt-1 text-2xl font-bold">Recursos para la entrega</h2>
+          </div>
+          <span className="text-sm text-muted">{links.length} recurso{links.length === 1 ? "" : "s"}</span>
+        </div>
+        {links.length ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {links.map((link) => <AssignmentResourceCard key={link.id} resource={link} />)}
+          </div>
+        ) : (
+          <EmptyState title="No hay recursos adicionales" description="La consigna contiene toda la información disponible para realizar este trabajo." />
+        )}
+      </section>
+
+      <section aria-labelledby="assignment-inquiries-heading" className="border-t pt-8">
+        <div className="mb-5">
+          <p className="text-sm font-semibold text-primary">Acompañamiento</p>
+          <h2 id="assignment-inquiries-heading" className="mt-1 text-2xl font-bold">Consultas sobre este trabajo</h2>
+          <p className="mt-2 text-sm text-muted">Hacé una pregunta sin perder el contexto de la consigna.</p>
+        </div>
+        <InquiryList inquiries={inquiries} currentUser={user} context={{ cohortId: resolvedCohortId, weekId: assignment.week, assignmentId: id, basePath: `/cohorts/${resolvedCohortId}/inquiries` }} />
+      </section>
+    </main>
   );
+}
+
+function AssignmentResourceCard({ resource }: { resource: LinkType }) {
+  return (
+    <a href={resource.url} target="_blank" rel="noopener noreferrer" className="group flex min-h-32 flex-col rounded-lg border bg-surface p-5 hover:border-primary hover:shadow-md" aria-label={`${resource.title}, abre en una pestaña nueva`}>
+      <div className="flex items-center justify-between gap-3">
+        <Badge variant="neutral">Enlace</Badge>
+        <span className="text-lg text-primary" aria-hidden="true">↗</span>
+      </div>
+      <h3 className="mt-4 font-bold group-hover:text-primary">{resource.title}</h3>
+      <p className="mt-2 truncate text-xs text-muted">{displayHost(resource.url)}</p>
+    </a>
+  );
+}
+
+function displayHost(url: string) {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
 }

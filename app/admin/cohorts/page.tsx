@@ -1,0 +1,22 @@
+import type { Cohort, CohortEnrollment } from "@/types";
+import { createAdminServerClient } from "@/lib/pocketbase-server";
+import { requireAdmin } from "@/lib/cohorts/access";
+import { createCohortAction } from "@/lib/cohorts/actions";
+import CohortForm from "@/components/cohorts/CohortForm";
+import { Badge, Card, CardContent, EmptyState, LinkButton, PageHeader, Select, Input, Button } from "@/components/ui";
+
+export const dynamic = "force-dynamic";
+type Query = { search?: string; status?: string; mode?: string; create?: string };
+export default async function AdminCohortsPage({ searchParams }: { searchParams: Promise<Query> }) {
+  await requireAdmin(); const query = await searchParams; const pb = await createAdminServerClient();
+  const [cohorts, enrollments] = await Promise.all([pb.collection("cohorts").getFullList<Cohort>({ sort: "-status,-startDate,name" }), pb.collection("cohort_enrollments").getFullList<CohortEnrollment>()]);
+  const search = query.search?.trim().toLocaleLowerCase("es") || ""; const visible = cohorts.filter((cohort) => (!search || `${cohort.name} ${cohort.slug}`.toLocaleLowerCase("es").includes(search)) && (!query.status || cohort.status === query.status) && (!query.mode || cohort.mode === query.mode));
+  const counts = new Map<string, { active: number; completed: number }>(); enrollments.forEach((item) => { const value = counts.get(item.cohort) || { active: 0, completed: 0 }; value[item.status] += 1; counts.set(item.cohort, value); });
+  return <div className="space-y-8"><PageHeader eyebrow="Administración" title="Cohortes" description={`${visible.length} de ${cohorts.length} cohortes coinciden con los filtros.`} actions={<LinkButton href="/admin/cohorts?create=1">Crear cohorte</LinkButton>} />
+    {query.create === "1" && <section className="space-y-4" aria-labelledby="create-cohort"><div className="flex items-center justify-between"><h2 id="create-cohort" className="text-2xl font-bold">Nueva cohorte</h2><LinkButton href="/admin/cohorts" variant="secondary" size="sm">Cancelar</LinkButton></div><CohortForm action={createCohortAction} /></section>}
+    <form className="grid gap-4 rounded-lg border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4"><Input name="search" label="Buscar" type="search" defaultValue={query.search} placeholder="Nombre o identificador" /><Select name="status" label="Estado" defaultValue={query.status || ""}><option value="">Todos</option><option value="active">Activas</option><option value="archived">Archivadas</option></Select><Select name="mode" label="Modalidad" defaultValue={query.mode || ""}><option value="">Todas</option><option value="weekly">Semanal</option><option value="sprints_and_teams">Sprints y equipos</option></Select><Button type="submit" className="self-end">Aplicar filtros</Button></form>
+    {!visible.length ? <EmptyState title="No hay cohortes que coincidan" description="Probá con otros criterios o creá una nueva cohorte." /> : <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{visible.map((cohort) => { const count = counts.get(cohort.id) || { active: 0, completed: 0 }; return <Card key={cohort.id}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">{cohort.name}</h2><p className="mt-1 text-sm text-muted">{cohort.slug}</p></div><Badge variant={cohort.status === "active" ? "success" : "neutral"}>{cohort.status === "active" ? "Activa" : "Archivada"}</Badge></div><dl className="mt-5 grid grid-cols-2 gap-3 text-sm"><Data label="Modalidad" value={cohort.mode === "weekly" ? "Semanal" : "Sprints y equipos"} /><Data label="Fechas" value={dateRange(cohort)} /><Data label="Matrículas activas" value={count.active} /><Data label="Finalizadas" value={count.completed} /></dl><LinkButton href={`/admin/cohorts/${cohort.id}`} variant="secondary" className="mt-5 w-full">Administrar cohorte</LinkButton></CardContent></Card>; })}</section>}
+  </div>;
+}
+function Data({ label, value }: { label: string; value: string | number }) { return <div><dt className="text-xs font-semibold text-muted">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>; }
+function dateRange(cohort: Cohort) { const format = (value?: string) => value ? new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeZone: "UTC" }).format(new Date(value)) : "—"; return `${format(cohort.startDate)} – ${format(cohort.endDate)}`; }

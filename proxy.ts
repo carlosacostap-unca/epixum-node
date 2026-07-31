@@ -18,7 +18,9 @@ export function proxy(request: NextRequest) {
   const isLoggedIn = !!pbAuth?.value;
 
   // Redirect unauthenticated users to login page
-  if (!isLoggedIn && path !== '/login') {
+  const isPublicPage = path === '/login' || path === '/enrollment-request';
+
+  if (!isLoggedIn && !isPublicPage) {
     const loginUrl = new URL('/login', request.url);
     // Optional: Add ?next=path to redirect back after login
     // loginUrl.searchParams.set('next', path);

@@ -1,42 +1,50 @@
-import { getClass, getLinks } from "@/lib/data";
+import { getClass, getClassCohortId, getLinks } from "@/lib/data";
 import { Class, Link as LinkType, Inquiry } from "@/types";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import FormattedDate from "@/components/FormattedDate";
 import { getCurrentUser } from "@/lib/pocketbase-server";
 import ClassDetailsManagement from "@/components/ClassDetailsManagement";
 import { getInquiries } from "@/lib/actions-inquiries";
 import InquiryList from "@/components/inquiries/InquiryList";
+import { appendSearchParams, cohortPath } from "@/lib/cohorts/route-compatibility";
 
 export const dynamic = 'force-dynamic';
 
-export default async function ClassPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClassPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ cohortId?: string; manage?: string }> }) {
   const { id } = await params;
+  const query = await searchParams; const requestedCohortId = query.cohortId;
   let classData: Class;
+  let resolvedCohortId = "";
   let links: LinkType[] = [];
   let inquiries: Inquiry[] = [];
   const user = await getCurrentUser();
   
   try {
     classData = await getClass(id);
-    links = await getLinks(id);
-    inquiries = await getInquiries({ classId: id });
+    resolvedCohortId = await getClassCohortId(classData);
+    if (requestedCohortId && requestedCohortId !== resolvedCohortId) return notFound();
+    if (query.manage === "1") {
+      links = await getLinks(id);
+      inquiries = await getInquiries({ cohortId: resolvedCohortId, classId: id });
+    }
   } catch (e) {
     console.error(e);
     return notFound();
   }
+  if (query.manage !== "1") redirect(appendSearchParams(cohortPath(resolvedCohortId, `/classes/${id}`), query, ["cohortId", "manage"]));
 
   const isAuthorized = user && (user.role === 'docente' || user.role === 'admin');
 
   if (isAuthorized) {
     return <div className="container mx-auto p-8 min-h-screen">
-      <ClassDetailsManagement user={user} classData={classData} links={links} inquiries={inquiries} />
+      <ClassDetailsManagement user={user} cohortId={resolvedCohortId} classData={classData} links={links} inquiries={inquiries} />
     </div>;
   }
 
   return (
     <div className="container mx-auto p-8 min-h-screen">
-      <Link href={`/sprints/${classData.sprint}`} className="text-blue-500 hover:underline mb-8 inline-block">&larr; Volver al Sprint</Link>
+      <Link href={classData.week ? `/cohorts/${resolvedCohortId}/weeks/${classData.week}` : `/cohorts/${resolvedCohortId}/sprints/${classData.sprint}`} className="text-blue-500 hover:underline mb-8 inline-block">&larr; Volver</Link>
       
       <header className="mb-12">
         <h1 className="text-3xl font-extrabold tracking-tight lg:text-4xl mb-4">
@@ -88,7 +96,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
 
       <div className="space-y-6">
         <h2 className="text-2xl font-bold mb-4">Consultas</h2>
-        <InquiryList inquiries={inquiries} currentUser={user} context={{ classId: id }} />
+        <InquiryList inquiries={inquiries} currentUser={user} context={{ cohortId: resolvedCohortId, weekId: classData.week, classId: id, basePath: `/cohorts/${resolvedCohortId}/inquiries` }} />
       </div>
     </div>
   );

@@ -7,11 +7,12 @@ import { useState } from "react";
 
 interface ClassFormProps {
   clase?: Class;
-  sprintId: string;
+  sprintId?: string;
+  weekId?: string;
   onClose?: () => void;
 }
 
-export default function ClassForm({ clase, sprintId, onClose }: ClassFormProps) {
+export default function ClassForm({ clase, sprintId, weekId, onClose }: ClassFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,7 +24,8 @@ export default function ClassForm({ clase, sprintId, onClose }: ClassFormProps) 
       let result;
       if (clase) {
         // Append sprintId for revalidation
-        formData.append("sprintId", sprintId);
+        if (sprintId) formData.set("sprintId", sprintId);
+        if (weekId) formData.set("weekId", weekId);
         result = await updateClass(clase.id, formData);
       } else {
         result = await createClass(formData);
@@ -55,7 +57,8 @@ export default function ClassForm({ clase, sprintId, onClose }: ClassFormProps) 
       )}
 
       <form action={handleSubmit} className="space-y-4">
-        <input type="hidden" name="sprintId" value={sprintId} />
+        {sprintId && <input type="hidden" name="sprintId" value={sprintId} />}
+        {weekId && <input type="hidden" name="weekId" value={weekId} />}
         
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">

@@ -1,119 +1,153 @@
 "use client";
 
-import { Delivery } from "@/types";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { Delivery, User } from "@/types";
+import { Badge, Card, CardContent, EmptyState, Input, Select } from "@/components/ui";
+
+type DeliveryFilter = "all" | "submitted" | "missing";
 
 interface TeacherDeliveriesProps {
   deliveries: Delivery[];
+  students: User[];
   assignmentId: string;
 }
 
-export default function TeacherDeliveries({ deliveries, assignmentId }: TeacherDeliveriesProps) {
+export default function TeacherDeliveries({ deliveries, students, assignmentId }: TeacherDeliveriesProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  
-  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL?.replace(/\/$/, "") || "";
+  const [status, setStatus] = useState<DeliveryFilter>("all");
 
-  const filteredDeliveries = deliveries.filter(delivery => {
-    const student = delivery.expand?.student;
-    const studentName = student?.name || "Estudiante desconocido";
-    const studentEmail = student?.email || "Sin email";
-    
-    return studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           studentEmail.toLowerCase().includes(searchTerm.toLowerCase());
+  const rows = useMemo(() => {
+    const byStudent = new Map(deliveries.map(delivery => [delivery.student, delivery]));
+    return students
+      .map(student => ({ student, delivery: byStudent.get(student.id) || null }))
+      .sort((a, b) => studentName(a.student).localeCompare(studentName(b.student), "es"));
+  }, [deliveries, students]);
+
+  const normalizedSearch = searchTerm.trim().toLocaleLowerCase("es");
+  const filteredRows = rows.filter(({ student, delivery }) => {
+    const matchesStatus = status === "all" || (status === "submitted" ? Boolean(delivery) : !delivery);
+    const identity = `${studentName(student)} ${student.email || ""}`.toLocaleLowerCase("es");
+    return matchesStatus && (!normalizedSearch || identity.includes(normalizedSearch));
   });
 
-  return (
-    <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-        <span className="p-1 bg-blue-100 dark:bg-blue-900 rounded-md">
-            <svg className="w-5 h-5 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        </span>
-        Entregas ({deliveries.length})
-      </h2>
+  const submitted = rows.filter(row => row.delivery).length;
+  const missing = rows.length - submitted;
+  const coverage = rows.length ? Math.round((submitted / rows.length) * 100) : 0;
 
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Buscar estudiante..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-        />
+  return (
+    <section id={`assignment-${assignmentId}-deliveries`} aria-labelledby="staff-deliveries-heading" className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-primary">Seguimiento docente</p>
+          <h2 id="staff-deliveries-heading" className="mt-1 text-2xl font-bold">Entregas de la cohorte</h2>
+          <p className="mt-2 text-sm text-muted">Identificá quiénes entregaron y quiénes necesitan seguimiento.</p>
+        </div>
+        <p className="text-sm text-muted" role="status" aria-live="polite">
+          {filteredRows.length} de {rows.length} estudiante{rows.length === 1 ? "" : "s"}
+        </p>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-          <thead className="bg-zinc-50 dark:bg-zinc-700">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-300 uppercase tracking-wider">
-                Estudiante
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-300 uppercase tracking-wider">
-                Repositorio
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-300 uppercase tracking-wider">
-                Fecha
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
-            {filteredDeliveries.length > 0 ? (
-              filteredDeliveries.map((delivery) => {
-                const student = delivery.expand?.student;
-                const studentName = student?.name || "Estudiante desconocido";
-                const studentEmail = student?.email || "Sin email";
-                
-                return (
-                <tr key={delivery.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 dark:bg-zinc-600 flex items-center justify-center text-zinc-500 dark:text-zinc-300 overflow-hidden">
-                         {student?.avatar ? (
-                            <img 
-                              src={`${pbUrl}/api/files/${student.collectionId}/${student.id}/${student.avatar}`} 
-                              alt={studentName} 
-                              className="h-full w-full object-cover" 
-                            />
-                         ) : (
-                            <span className="font-bold text-xs">
-                                {studentName.charAt(0) || "?"}
-                            </span>
-                         )}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                          {studentName}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Resumen de entregas">
+        <Metric label="Estudiantes" value={rows.length} help="matriculados" />
+        <Metric label="Entregadas" value={submitted} help="con repositorio" variant="success" />
+        <Metric label="Faltantes" value={missing} help="requieren seguimiento" variant={missing ? "warning" : "neutral"} />
+        <Metric label="Cobertura" value={`${coverage}%`} help={`${submitted} de ${rows.length}`} variant="info" />
+      </div>
+
+      <Card>
+        <CardContent className="space-y-5 p-5 sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+            <Input
+              id="delivery-student-search"
+              type="search"
+              label="Buscar estudiante"
+              placeholder="Nombre o correo"
+              value={searchTerm}
+              onChange={event => setSearchTerm(event.target.value)}
+            />
+            <Select id="delivery-status-filter" label="Estado de entrega" value={status} onChange={event => setStatus(event.target.value as DeliveryFilter)}>
+              <option value="all">Todos los estados</option>
+              <option value="submitted">Entregada</option>
+              <option value="missing">Pendiente</option>
+            </Select>
+          </div>
+
+          {!rows.length ? (
+            <EmptyState title="No hay estudiantes matriculados" description="Cuando la cohorte tenga estudiantes, aparecerá aquí el seguimiento de sus entregas." />
+          ) : !filteredRows.length ? (
+            <EmptyState title="No encontramos coincidencias" description="Probá con otra búsqueda o cambiá el estado de entrega seleccionado." />
+          ) : (
+            <>
+              <ul className="grid gap-3 md:hidden" aria-label="Entregas en formato móvil">
+                {filteredRows.map(({ student, delivery }) => (
+                  <li key={student.id} className="rounded-md border bg-surface p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary" aria-hidden="true">{initials(student)}</span>
+                        <div className="min-w-0">
+                          <h3 className="truncate font-semibold">{studentName(student)}</h3>
+                          <p className="truncate text-xs text-muted">{student.email || "Correo no informado"}</p>
                         </div>
                       </div>
+                      <Badge variant={delivery ? "success" : "warning"}>{delivery ? "Entregada" : "Pendiente"}</Badge>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <a 
-                      href={delivery.repositoryUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 hover:underline flex items-center gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-                      Ver Repositorio
-                    </a>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
-                    {new Date(delivery.created).toLocaleDateString()}
-                  </td>
-                </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                  No hay entregas registradas
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                    <dl className="mt-4 grid gap-3 border-t pt-4 text-sm">
+                      <div className="flex items-start justify-between gap-4"><dt className="font-semibold text-muted">Repositorio</dt><dd className="min-w-0 truncate text-right">{delivery ? displayHost(delivery.repositoryUrl) : "Sin repositorio"}</dd></div>
+                      <div className="flex items-start justify-between gap-4"><dt className="font-semibold text-muted">Fecha</dt><dd>{delivery ? formatDate(delivery.created) : "—"}</dd></div>
+                    </dl>
+                    {delivery ? <a href={delivery.repositoryUrl} target="_blank" rel="noopener noreferrer" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-md border border-border-strong bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-surface-muted">Abrir entrega<span className="sr-only"> de {studentName(student)}, abre en una pestaña nueva</span></a> : <p className="mt-4 rounded-md bg-warning-soft px-3 py-2 text-center text-sm font-medium text-warning">Entrega pendiente</p>}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="hidden overflow-x-auto rounded-md border md:block">
+              <table className="min-w-full divide-y divide-border text-sm">
+                <caption className="sr-only">Estado de entrega de cada estudiante de la cohorte</caption>
+                <thead className="bg-surface-muted text-left text-xs uppercase tracking-wide text-muted">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 font-semibold">Estudiante</th>
+                    <th scope="col" className="px-4 py-3 font-semibold">Estado</th>
+                    <th scope="col" className="px-4 py-3 font-semibold">Repositorio</th>
+                    <th scope="col" className="px-4 py-3 font-semibold">Fecha</th>
+                    <th scope="col" className="px-4 py-3 text-right font-semibold">Acceso</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border bg-surface">
+                  {filteredRows.map(({ student, delivery }) => (
+                    <tr key={student.id}>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary" aria-hidden="true">{initials(student)}</span>
+                          <span className="min-w-0">
+                            <span className="block font-semibold">{studentName(student)}</span>
+                            <span className="block max-w-64 truncate text-xs text-muted">{student.email || "Correo no informado"}</span>
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4"><Badge variant={delivery ? "success" : "warning"}>{delivery ? "Entregada" : "Pendiente"}</Badge></td>
+                      <td className="max-w-64 px-4 py-4 text-muted">{delivery ? displayHost(delivery.repositoryUrl) : "Sin repositorio"}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-muted">{delivery ? formatDate(delivery.created) : "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-right">
+                        {delivery ? <a href={delivery.repositoryUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline-offset-4 hover:underline">Abrir entrega<span className="sr-only"> de {studentName(student)}, abre en una pestaña nueva</span></a> : <span className="text-muted">Sin acceso</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   );
 }
+
+function Metric({ label, value, help, variant = "neutral" }: { label: string; value: number | string; help: string; variant?: "neutral" | "success" | "warning" | "info" }) {
+  return <Card><CardContent className="p-4"><Badge variant={variant}>{label}</Badge><p className="mt-3 text-3xl font-bold tabular-nums">{value}</p><p className="mt-1 text-xs text-muted">{help}</p></CardContent></Card>;
+}
+
+function studentName(student: User) { return student.name || [student.firstName, student.lastName].filter(Boolean).join(" ") || student.email || "Estudiante sin nombre"; }
+function initials(student: User) { return studentName(student).split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "?"; }
+function displayHost(url: string) { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } }
+function formatDate(value: string) { return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" }).format(new Date(value)); }

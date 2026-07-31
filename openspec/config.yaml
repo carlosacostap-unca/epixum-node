@@ -1,0 +1,28 @@
+schema: spec-driven
+
+context: |
+  Epixum es una plataforma web académica para un curso de Node.js.
+  Stack: Next.js App Router, React, TypeScript, Tailwind CSS y PocketBase.
+  Roles: admin, docente y estudiante.
+  PocketBase es la fuente de verdad para usuarios, sprints, clases, trabajos,
+  recursos, entregas, equipos, mensajes, consultas, respuestas, encuestas y revisiones.
+  Las especificaciones base describen el comportamiento brownfield observado en el código.
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
