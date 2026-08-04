@@ -7,6 +7,6 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./test/setup.ts"],
-    include: ["components/ui/**/*.test.tsx", "components/shell/**/*.test.tsx", "components/cohorts/**/*.test.tsx", "app/theme.test.ts", "lib/navigation.test.ts"],
+    include: ["proxy.test.ts", "components/ui/**/*.test.tsx", "components/shell/**/*.test.tsx", "components/cohorts/**/*.test.tsx", "app/theme.test.ts", "lib/navigation.test.ts"],
   },
 });
