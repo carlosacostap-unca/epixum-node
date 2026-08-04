@@ -2,7 +2,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import JavascriptAssessmentForm from "./JavascriptAssessmentForm";
 
-const submit = vi.fn(async () => ({
+const submit = vi.fn(async (...args: unknown[]) => {
+  void args;
+  return ({
   success: true as const,
   message: "Guardamos tu diagnóstico inicial correctamente.",
   score: 1,
@@ -11,7 +13,8 @@ const submit = vi.fn(async () => ({
   duplicate: false,
   categoryScores: [{ id: "fundamentals" as const, label: "Fundamentos y control de flujo", score: 1, total: 2, percentage: 50 }],
   feedback: [{ id: "fundamentals" as const, label: "Fundamentos y control de flujo", score: 1, total: 2, percentage: 50, level: "developing" as const, title: "En desarrollo", message: "Vas bien. Seguí practicando." }],
-}));
+  });
+});
 
 vi.mock("@/lib/cohorts/assessment-actions", () => ({ submitJavascriptAssessmentAction: (...args: unknown[]) => submit(...args) }));
 
