@@ -45,6 +45,7 @@ export function getNavigationItems({ role, cohort, showCohorts = true }: Navigat
   if (role === "admin") items.push(
     { id: "admin-cohorts", label: "Administrar cohortes", href: "/admin/cohorts", icon: "settings" },
     { id: "users", label: "Administrar usuarios", href: "/admin/users", icon: "users" },
+    { id: "content-bases", label: "Bases de contenido", href: "/admin/content-bases", icon: "content" },
   );
   return items;
 }
@@ -56,10 +57,14 @@ export function isNavigationItemActive(item: NavigationItem, pathname: string) {
   return candidates.some(candidate => pathname === candidate || pathname.startsWith(`${candidate}/`));
 }
 
-export function getCohortDestination(cohort: Pick<Cohort, "id">) { return `/cohorts/${cohort.id}`; }
+export function isFocusedLearningPath(pathname: string) {
+  return /^\/cohorts\/[^/]+\/weeks\/[^/]+\/content\/(?!manage(?:\/|$))[^/]+\/?$/.test(pathname);
+}
+
+export function getCohortDestination(cohort: Pick<Cohort, "id">, role?: UserRole) { return isStaffRole(role) ? `/cohorts/${cohort.id}/dashboard` : `/cohorts/${cohort.id}`; }
 
 export function getBreadcrumbs(pathname: string, cohortName?: string) {
-  const labels: Record<string, string> = { cohorts: "Cohortes", weeks: "Semanas", sprints: "Sprints", inquiries: "Consultas", dashboard: "Tablero", teams: "Equipos", reviews: "Revisiones", assessment: "Diagnóstico", "assessment-report": "Reporte del diagnóstico", admin: "Administración", users: "Usuarios", staff: "Equipo docente", "enrollment-requests": "Solicitudes", profile: "Perfil" };
+  const labels: Record<string, string> = { cohorts: "Cohortes", weeks: "Semanas", sprints: "Sprints", inquiries: "Consultas", dashboard: "Tablero", students: "Estudiantes", teams: "Equipos", reviews: "Revisiones", assessment: "Diagnóstico", "assessment-report": "Reporte del diagnóstico", admin: "Administración", users: "Usuarios", "content-bases": "Bases de contenido", staff: "Equipo docente", attention: "Atención docente", "enrollment-requests": "Solicitudes", profile: "Perfil" };
   const segments = pathname.split("/").filter(Boolean);
   const result: Array<{ label: string; href?: string }> = [{ label: "Inicio", href: "/" }];
   let href = "";

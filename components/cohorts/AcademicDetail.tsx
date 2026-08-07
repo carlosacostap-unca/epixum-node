@@ -5,7 +5,7 @@ import InquiryList from "@/components/inquiries/InquiryList";
 import type { Assignment, Class, Inquiry, User } from "@/types";
 import { cn } from "@/lib/cn";
 
-export type AcademicDetailSection = "overview" | "classes" | "assignments" | "inquiries";
+export type AcademicDetailSection = "overview" | "content" | "classes" | "assignments" | "inquiries";
 
 interface AcademicDetailProps {
   cohortId: string;
@@ -26,13 +26,15 @@ interface AcademicDetailProps {
   weekId?: string;
   actions?: ReactNode;
   management?: ReactNode;
+  content?: ReactNode;
 }
 
 export default function AcademicDetail(props: AcademicDetailProps) {
-  const { cohortId, containerId, cohortName, kind, positionLabel, title, description, startDate, endDate, publication, classes, assignments, inquiries, currentUser, activeSection, weekId, actions, management } = props;
+  const { cohortId, containerId, cohortName, kind, positionLabel, title, description, startDate, endDate, publication, classes, assignments, inquiries, currentUser, activeSection, weekId, actions, management, content } = props;
   const canonicalPath = `/cohorts/${cohortId}/${kind === "week" ? "weeks" : "sprints"}/${containerId}`;
   const tabs = [
     { id: "overview" as const, label: "Resumen" },
+    ...(kind === "week" ? [{ id: "content" as const, label: "Contenidos" }] : []),
     { id: "classes" as const, label: `Clases (${classes.length})` },
     { id: "assignments" as const, label: `Trabajos (${assignments.length})` },
     { id: "inquiries" as const, label: `Consultas (${inquiries.length})` },
@@ -51,6 +53,7 @@ export default function AcademicDetail(props: AcademicDetailProps) {
     </nav>
     <section aria-labelledby={`academic-${activeSection}-heading`}>
       {activeSection === "overview" && <Overview title={title} description={description} classes={classes} assignments={assignments} inquiries={inquiries} canonicalPath={canonicalPath} />}
+      {activeSection === "content" && content}
       {activeSection === "classes" && <ContentList kind="classes" items={classes} cohortId={cohortId} />}
       {activeSection === "assignments" && <ContentList kind="assignments" items={assignments} cohortId={cohortId} />}
       {activeSection === "inquiries" && <div><h2 id="academic-inquiries-heading" className="mb-4 text-xl font-bold">Consultas contextuales</h2><InquiryList inquiries={inquiries} currentUser={currentUser} context={{ cohortId, weekId, basePath: `/cohorts/${cohortId}/inquiries` }} /></div>}

@@ -1,0 +1,22 @@
+INSTALÁ GIT - SEMANA 1
+
+Cómo usar este sitio:
+
+1. Descomprimí el archivo ZIP.
+2. Abrí index.html con cualquier navegador moderno.
+3. La lección funciona sin servidor ni instalación adicional.
+
+La descarga de Git requiere conexión a Internet. Todo el contenido de la guía
+y sus imágenes puede consultarse sin conexión.
+
+El nombre y correo ingresados se usan únicamente para generar los comandos en
+el navegador. No se transmiten ni se almacenan.
+
+Archivos incluidos:
+
+- index.html: estructura y contenido de la lección.
+- styles.css: diseño visual, impresión y adaptación a pantallas pequeñas.
+- script.js: generador de comandos, copiado, verificación y progreso.
+- git-descarga-windows.png
+- git-instalador-opciones.png
+- git-verificacion-configuracion.png

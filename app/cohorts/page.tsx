@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Badge, EmptyState, PageHeader } from "@/components/ui";
 import { getAccessibleCohorts } from "@/lib/cohorts/access";
 import { createServerClient, getCurrentUser } from "@/lib/pocketbase-server";
+import { getCohortDestination } from "@/lib/navigation";
 import type { Cohort, CohortEnrollment } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -25,13 +26,13 @@ export default async function CohortsPage() {
 
   return <main className="mx-auto w-full max-w-[var(--content-dashboard)] space-y-8 px-4 py-8 lg:px-8">
     <PageHeader eyebrow="Espacio académico" title={staff ? "Seleccioná una cohorte" : "Mis cohortes"} description={staff ? "Cambiá de contexto sin mezclar contenidos, estudiantes ni métricas." : "Elegí la cursada activa que querés continuar."} />
-    {summaries.length ? <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{summaries.map(summary => <CohortCard key={summary.cohort.id} summary={summary} staff={staff} />)}</div> : <EmptyState title="No tenés cohortes disponibles" description="Contactá a una persona administradora para verificar tu matrícula y el correo asociado." />}
+    {summaries.length ? <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{summaries.map(summary => <CohortCard key={summary.cohort.id} summary={summary} staff={staff} href={getCohortDestination(summary.cohort, user.role)} />)}</div> : <EmptyState title="No tenés cohortes disponibles" description="Contactá a una persona administradora para verificar tu matrícula y el correo asociado." />}
   </main>;
 }
 
-function CohortCard({ summary, staff }: { summary: { cohort: Cohort; activeStudents?: number; pendingRequests?: number; enrollment?: CohortEnrollment | null }; staff: boolean }) {
+function CohortCard({ summary, staff, href }: { summary: { cohort: Cohort; activeStudents?: number; pendingRequests?: number; enrollment?: CohortEnrollment | null }; staff: boolean; href: string }) {
   const cohort = summary.cohort;
-  return <Link href={`/cohorts/${cohort.id}`} className="group flex min-h-64 flex-col rounded-lg border bg-surface p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md">
+  return <Link href={href} className="group flex min-h-64 flex-col rounded-lg border bg-surface p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md">
     <div className="flex items-start justify-between gap-3"><Badge variant={cohort.status === "active" ? "success" : "neutral"}>{cohort.status === "active" ? "Activa" : "Archivada"}</Badge><span className="text-xs font-semibold text-muted">{cohort.mode === "weekly" ? "Por semanas" : "Sprints y equipos"}</span></div>
     <div className="mt-5 flex-1"><h2 className="text-xl font-bold group-hover:text-primary">{cohort.name}</h2><p className="mt-2 text-sm text-muted">{dateRange(cohort)}</p></div>
     {staff ? <dl className="mt-5 grid grid-cols-2 gap-3 border-t pt-4"><div><dt className="text-xs text-muted">Alumnos activos</dt><dd className="mt-1 text-xl font-bold">{summary.activeStudents ?? 0}</dd></div><div><dt className="text-xs text-muted">Solicitudes</dt><dd className="mt-1 text-xl font-bold">{summary.pendingRequests ?? 0}</dd></div></dl> : <div className="mt-5 flex items-center justify-between border-t pt-4"><span className="text-sm text-muted">{summary.enrollment?.status === "completed" ? "Cursada finalizada" : summary.enrollment?.entryType === "repeater" ? "Recursante · En curso" : "En curso"}</span><span className="font-semibold text-primary">Continuar →</span></div>}

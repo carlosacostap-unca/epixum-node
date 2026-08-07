@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Guía para guardar con Git y publicar la primera entrega en GitHub." />
+    <title>Publicá tu primera entrega | Semana 1</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#inicio"><span class="brand-mark">N</span><span>Nodera</span></a>
+      <div class="course-title"><span>DESARROLLO BACK END CON NODE.JS</span><strong>Semana 1</strong></div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <p class="eyebrow"><span>02.5</span> PREPARACIÓN DESDE CERO</p>
+        <div class="hero-grid">
+          <div><h1>Publicá tu primera <em>entrega</em></h1><p class="lead">Guardá una versión con Git, conectala con un repositorio vacío de GitHub y comprobá que el enlace funcione.</p></div>
+          <aside class="definition-card"><span>REGLA DEL RECORRIDO</span><dl><div><dt>Orden</dt><dd>Una etapa por vez.</dd></div><div><dt>Evidencia</dt><dd>Revisá cada resultado.</dd></div><div><dt>Seguridad</dt><dd>Nunca subas secretos.</dd></div></dl></aside>
+        </div>
+      </section>
+
+      <ol class="publication-progress" aria-label="Etapas de la primera publicación">
+        <li><a href="#preparar"><span>1</span><strong>Preparar</strong></a></li>
+        <li><a href="#guardar"><span>2</span><strong>Guardar</strong></a></li>
+        <li><a href="#conectar"><span>3</span><strong>Conectar</strong></a></li>
+        <li><a href="#publicar"><span>4</span><strong>Publicar</strong></a></li>
+        <li><a href="#verificar"><span>5</span><strong>Verificar</strong></a></li>
+      </ol>
+
+      <article class="lesson">
+        <section class="concept-section">
+          <p class="section-label">VOCABULARIO DEL RECORRIDO</p>
+          <h2>Cuatro palabras esenciales</h2>
+          <div class="account-steps publication-concepts">
+            <article><span>01</span><strong>Repositorio</strong><p>La carpeta cuando Git comienza a registrar su historia.</p></article>
+            <article><span>02</span><strong>Commit</strong><p>Una versión guardada con un mensaje que explica el cambio.</p></article>
+            <article><span>03</span><strong>Remoto</strong><p>El repositorio de GitHub conectado con tu computadora.</p></article>
+            <article><span>04</span><strong>Push</strong><p>El envío de commits locales hacia el repositorio remoto.</p></article>
+          </div>
+        </section>
+
+        <section id="preparar" class="step-section">
+          <div class="step-index">01</div>
+          <div class="step-body">
+            <p class="section-label">ANTES DE GUARDAR</p>
+            <h2>Prepará y revisá la carpeta</h2>
+            <p>Abrí la carpeta completa de la entrega en Visual Studio Code. Ejecutá <code>pwd</code> y <code>ls</code>, y luego probá el programa una última vez con <code>node app.js</code>.</p>
+            <div class="summary-list">
+              <article><span>01</span><p><strong>Ubicación correcta.</strong> La terminal está dentro de la carpeta que querés entregar.</p></article>
+              <article><span>02</span><p><strong>Programa probado.</strong> Se ejecuta desde cero y muestra el resultado esperado.</p></article>
+              <article><span>03</span><p><strong>README presente.</strong> Explica qué hace y cómo se ejecuta.</p></article>
+              <article><span>04</span><p><strong>Contenido seguro.</strong> No contiene contraseñas, tokens ni información innecesaria.</p></article>
+            </div>
+            <div class="code-window">
+              <div class="code-top"><span>Contenido mínimo sugerido para README.md</span><button data-copy-target="readme-code">COPIAR</button></div>
+              <pre><code id="readme-code"># Entrega semana 1
+
+Programa de consola desarrollado con Node.js.
+
+## Cómo ejecutarlo
+
+```bash
+node app.js
+```</code></pre><p class="copy-status" role="status"></p>
+            </div>
+            <aside class="security-alert"><span>!</span><div><strong>Nunca subas secretos</strong><p>Contraseñas, tokens, claves privadas y códigos de recuperación no deben agregarse, confirmarse ni enviarse a GitHub.</p></div></aside>
+          </div>
+        </section>
+
+        <section id="guardar" class="step-section">
+          <div class="step-index">02</div>
+          <div class="step-body">
+            <p class="section-label">REPOSITORIO LOCAL</p>
+            <h2>Guardá la primera versión</h2>
+            <p>Estos comandos convierten la carpeta actual en un repositorio, revisan y preparan los archivos, y crean el primer commit. Ejecutalos una línea por vez.</p>
+            <div class="code-window">
+              <div class="code-top"><span>Crear el repositorio local y el primer commit</span><button data-copy-target="first-commit">COPIAR</button></div>
+              <pre><code id="first-commit">git init -b main
+git status
+git add .
+git status
+git commit -m "Entrega semana 1"</code></pre><p class="copy-status" role="status"></p>
+            </div>
+            <div class="expected-result"><span>RESULTADO ESPERADO</span><p>Después de <code>git add .</code>, los archivos aparecen como preparados. El commit final muestra un identificador breve y el mensaje <strong>Entrega semana 1</strong>.</p></div>
+            <aside class="help-note"><strong>Si <code>git init -b main</code> no funciona</strong><p>Ejecutá <code>git init</code> y luego <code>git branch -M main</code>. Después continuá con <code>git status</code>.</p></aside>
+          </div>
+        </section>
+
+        <section class="step-section">
+          <div class="step-index">03</div>
+          <div class="step-body">
+            <p class="section-label">REPOSITORIO REMOTO</p>
+            <h2>Creá un repositorio vacío en GitHub</h2>
+            <p>En GitHub creá un repositorio llamado <code>entrega-semana-1</code>. Para este recorrido seleccioná visibilidad pública y dejá sin marcar README, <code>.gitignore</code> y licencia.</p>
+            <div class="repo-settings"><article><span>✓</span><strong>Nombre</strong><code>entrega-semana-1</code></article><article><span>✓</span><strong>Visibilidad</strong><code>Public</code></article><article><span>×</span><strong>Inicialización</strong><code>Sin archivos</code></article></div>
+            <figure><img src="entrega-crear-repositorio.png" alt="Creación de un repositorio público y vacío llamado entrega-semana-1." /><figcaption><span>01</span><p><strong>El repositorio debe comenzar vacío.</strong> El primer contenido será exactamente el commit local que acabás de crear.</p></figcaption></figure>
+          </div>
+        </section>
+
+        <section id="conectar" class="step-section">
+          <div class="step-index">04</div>
+          <div class="step-body">
+            <p class="section-label">CONEXIÓN HTTPS</p>
+            <h2>Copiá la URL y conectá el remoto</h2>
+            <p>En la configuración rápida de GitHub elegí <strong>HTTPS</strong> y copiá la URL terminada en <code>.git</code>. No uses la URL del perfil ni selecciones SSH.</p>
+            <figure><img src="entrega-copiar-url.png" alt="Repositorio vacío mostrando su URL HTTPS y el botón para copiarla." /><figcaption><span>02</span><p><strong>Copiá la URL del repositorio.</strong> Debe terminar en <code>/entrega-semana-1.git</code>.</p></figcaption></figure>
+            <section class="remote-builder" aria-labelledby="remote-title">
+              <div><span>GENERADOR DE COMANDOS</span><h3 id="remote-title">Pegá la URL HTTPS</h3><p>La URL se utiliza solamente dentro de esta página.</p></div>
+              <label>URL del repositorio<input id="remote-url" type="url" placeholder="https://github.com/usuario/entrega-semana-1.git" autocomplete="off" /></label>
+              <p id="remote-feedback" class="remote-feedback">Esperando una URL de GitHub.</p>
+              <div class="code-window generated-code"><div class="code-top"><span>Conectar la carpeta con GitHub</span><button id="copy-remote" disabled>COPIAR</button></div><pre><code id="remote-code">git remote add origin https://github.com/TU-USUARIO/entrega-semana-1.git
+git remote -v</code></pre><p class="copy-status" role="status"></p></div>
+            </section>
+            <div class="expected-result"><span>RESULTADO ESPERADO</span><p><code>git remote -v</code> muestra dos líneas <code>origin</code> con la misma URL: una para obtener contenido y otra para enviarlo.</p></div>
+          </div>
+        </section>
+
+        <section id="publicar" class="step-section">
+          <div class="step-index">05</div>
+          <div class="step-body">
+            <p class="section-label">PRIMER PUSH</p>
+            <h2>Publicá la rama principal</h2>
+            <p>El primer push envía el commit y conecta la rama <code>main</code>. Puede abrirse el navegador para iniciar sesión y autorizar la operación. No agregues contraseñas dentro de los comandos.</p>
+            <div class="code-window"><div class="code-top"><span>Publicar la rama principal</span><button data-copy-target="push-code">COPIAR</button></div><pre><code id="push-code">git push -u origin main</code></pre><p class="copy-status" role="status"></p></div>
+            <figure><img src="entrega-publicar-terminal.png" alt="Terminal mostrando la creación del commit y un push exitoso hacia GitHub." /><figcaption><span>03</span><p><strong>Buscá una confirmación relacionada con <code>origin/main</code>.</strong> Cuando reaparece el prompt sin error, actualizá GitHub.</p></figcaption></figure>
+          </div>
+        </section>
+
+        <section id="verificar" class="step-section">
+          <div class="step-index">06</div>
+          <div class="step-body">
+            <p class="section-label">EVIDENCIA FINAL</p>
+            <h2>Verificá el repositorio publicado</h2>
+            <p>En GitHub deben aparecer los archivos y el mensaje del último commit. Revisá el README, pero regresá a la página principal antes de copiar el enlace de entrega.</p>
+            <figure><img src="entrega-repositorio-publicado.png" alt="Repositorio publicado con app.js, operaciones.js y README.md." /><figcaption><span>04</span><p><strong>Entregá la URL del repositorio completo.</strong> Debe terminar en <code>/entrega-semana-1</code>, no en la dirección de un archivo.</p></figcaption></figure>
+          </div>
+        </section>
+
+        <section class="troubleshooting">
+          <p class="section-label">SI ALGO NO FUNCIONA</p><h2>Usá el mensaje como evidencia</h2>
+          <div class="error-cards">
+            <article><code>not a git repository</code><strong>Carpeta incorrecta</strong><p>Usá <code>pwd</code> y <code>cd</code>; después ejecutá <code>git status</code>.</p></article>
+            <article><code>nothing to commit</code><strong>No hay cambios preparados</strong><p>Revisá <code>git status</code> y, si cambió algo, ejecutá <code>git add .</code>.</p></article>
+            <article><code>remote origin already exists</code><strong>Ya existe un remoto</strong><p>Consultá <code>git remote -v</code>. Corregilo con <code>git remote set-url origin URL</code>.</p></article>
+            <article><code>src refspec main</code><strong>Falta commit o rama</strong><p>Confirmá el commit y ejecutá <code>git branch -M main</code>.</p></article>
+            <article><code>push rejected</code><strong>Hay otra historia remota</strong><p>Creá otro repositorio vacío. No fuerces el push.</p></article>
+            <article><code>repository not found</code><strong>URL o cuenta incorrecta</strong><p>Copiá nuevamente la URL HTTPS y verificá la sesión.</p></article>
+          </div>
+        </section>
+
+        <section class="second-push">
+          <p class="section-label">CICLO COTIDIANO</p><h2>Hacé una segunda publicación</h2>
+          <p>Corregí una frase del README y repetí el ciclo. Ya no hace falta <code>git init</code>, agregar el remoto ni usar <code>-u</code>.</p>
+          <div class="three-command-loop"><article><span>1</span><code>git add .</code><p>Prepará los cambios.</p></article><article><span>2</span><code>git commit -m "Corrijo el README"</code><p>Guardá una nueva versión.</p></article><article><span>3</span><code>git push</code><p>Subila a GitHub.</p></article></div>
+          <div class="code-window"><div class="code-top"><span>Segundo envío completo</span><button data-copy-target="second-push-code">COPIAR</button></div><pre><code id="second-push-code">git status
+git add .
+git commit -m "Corrijo el README"
+git push</code></pre><p class="copy-status" role="status"></p></div>
+          <div class="expected-result"><span>COMPROBACIÓN</span><p>Actualizá GitHub y verificá que el commit más reciente diga <strong>Corrijo el README</strong>. La misma URL sigue funcionando.</p></div>
+        </section>
+
+        <section class="checkpoint delivery-checklist" aria-labelledby="checkpoint-title">
+          <div class="checkpoint-head"><div><span>CONTROL FINAL</span><h2 id="checkpoint-title">¿Está lista para entregar?</h2></div><div class="meter"><i id="checkpoint-progress"></i></div></div>
+          <div class="checklist delivery-items">
+            <label><input type="checkbox" data-check="0" /><span>✓</span>El programa funciona desde la terminal.</label>
+            <label><input type="checkbox" data-check="1" /><span>✓</span>El repositorio contiene app.js, módulos y README.md.</label>
+            <label><input type="checkbox" data-check="2" /><span>✓</span>El último commit se llama “Entrega semana 1”.</label>
+            <label><input type="checkbox" data-check="3" /><span>✓</span>Los archivos aparecen en la página principal.</label>
+            <label><input type="checkbox" data-check="4" /><span>✓</span>El enlace abre el repositorio completo.</label>
+            <label><input type="checkbox" data-check="5" /><span>✓</span>Revisé que no haya secretos.</label>
+          </div>
+          <div class="checkpoint-foot"><strong id="checkpoint-count">0 de 6 puntos comprobados</strong><button id="reset-progress">Reiniciar lista</button></div>
+          <div id="completion" class="completion" hidden><span>✓</span><div><strong>Todo comprobado</strong><p>Ya podés copiar y presentar el enlace del repositorio.</p></div></div>
+        </section>
+      </article>
+    </main>
+    <footer><span>NODERA</span><p>Semana 1 · Preparación desde cero · Primera entrega</p></footer>
+  </body>
+</html>

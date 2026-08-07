@@ -1,0 +1,23 @@
+CREÁ TU CUENTA DE GITHUB - SEMANA 1
+
+Cómo usar este sitio:
+
+1. Descomprimí el archivo ZIP.
+2. Abrí index.html con cualquier navegador moderno.
+3. La guía funciona sin servidor. El registro y el acceso a GitHub requieren
+   conexión a Internet.
+
+Seguridad:
+
+- El sitio no solicita contraseñas ni códigos de verificación.
+- El usuario escrito para formar el enlace no se guarda ni se transmite.
+- La lista de control se almacena únicamente en el navegador del dispositivo.
+
+Archivos incluidos:
+
+- index.html: estructura y contenido de la lección.
+- styles.css: diseño visual, impresión y adaptación a pantallas pequeñas.
+- script.js: comprobación del perfil, copiado y seguimiento del avance.
+- github-registro-cuenta.png
+- github-verificacion-correo.png
+- github-cuenta-lista.png

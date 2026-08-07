@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Guía paso a paso para instalar y comprobar Node.js y npm en Windows." />
+    <title>Instalá Node.js | Semana 1</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#inicio" aria-label="Ir al inicio"><span class="brand-mark">N</span><span>Nodera</span></a>
+      <div class="course-title"><span>DESARROLLO BACK END CON NODE.JS</span><strong>Semana 1</strong></div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <p class="eyebrow"><span>02.2</span> PREPARACIÓN DESDE CERO</p>
+        <div class="hero-grid">
+          <div>
+            <h1>Instalá <em>Node.js</em></h1>
+            <p class="lead">Prepará Windows para ejecutar JavaScript fuera del navegador y verificá que Node.js y npm estén disponibles.</p>
+          </div>
+          <aside class="definition-card">
+            <span>QUÉ VAS A INSTALAR</span>
+            <dl>
+              <div><dt>Node.js</dt><dd>Ejecuta JavaScript.</dd></div>
+              <div><dt>npm</dt><dd>Administra paquetes.</dd></div>
+              <div><dt>PATH</dt><dd>Habilita los comandos.</dd></div>
+            </dl>
+          </aside>
+        </div>
+        <aside class="before-start">
+          <strong>Antes de comenzar</strong>
+          <p>Guardá tus archivos y cerrá las terminales abiertas. Si el equipo solicita una contraseña de administrador, pedí ayuda al responsable del aula.</p>
+        </aside>
+      </section>
+
+      <nav class="step-nav" aria-label="Pasos de instalación">
+        <a href="#descarga"><span>01</span><b>Descargar</b><small>Versión LTS</small></a>
+        <a href="#instalador"><span>02</span><b>Instalar</b><small>Opciones estándar</small></a>
+        <a href="#reinicio"><span>03</span><b>Reiniciar</b><small>Visual Studio Code</small></a>
+        <a href="#verificacion"><span>04</span><b>Verificar</b><small>Node.js y npm</small></a>
+      </nav>
+
+      <article class="lesson">
+        <section id="descarga" class="step-section">
+          <div class="step-index">01</div>
+          <div class="step-body">
+            <p class="section-label">VERSIÓN ESTABLE</p>
+            <h2>Descargá la versión LTS</h2>
+            <p>Abrí la <a href="https://nodejs.org/en/download" target="_blank" rel="noreferrer">página oficial de descarga de Node.js ↗</a> y elegí la opción indicada como <strong>LTS</strong>.</p>
+            <p>LTS significa soporte de largo plazo: es la alternativa estable recomendada para aprender y trabajar durante la cursada. El número de versión puede ser diferente al de las imágenes y no representa un problema.</p>
+            <figure>
+              <img src="node-descarga-lts.png" alt="Captura simulada de la descarga de Node.js con la opción LTS para Windows seleccionada." />
+              <figcaption><span>01</span><p><strong>Buscá la etiqueta LTS.</strong> El sitio oficial puede cambiar de aspecto, pero la opción recomendada conserva esa identificación.</p></figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section id="instalador" class="step-section">
+          <div class="step-index">02</div>
+          <div class="step-body">
+            <p class="section-label">INSTALACIÓN PREDETERMINADA</p>
+            <h2>Ejecutá el instalador</h2>
+            <p>Abrí el archivo descargado y avanzá con <strong>Siguiente</strong>. Aceptá la licencia y conservá la carpeta y los componentes predeterminados.</p>
+            <div class="component-grid">
+              <article><span aria-hidden="true">✓</span><div><strong>Node.js runtime</strong><p>El motor que ejecutará tu código JavaScript.</p></div></article>
+              <article><span aria-hidden="true">✓</span><div><strong>npm package manager</strong><p>La herramienta para incorporar paquetes al proyecto.</p></div></article>
+              <article><span aria-hidden="true">✓</span><div><strong>Add to PATH</strong><p>Permite usar <code>node</code> desde cualquier terminal.</p></div></article>
+            </div>
+            <figure>
+              <img src="node-instalador-opciones.png" alt="Captura simulada del instalador de Node.js con runtime, npm y PATH seleccionados." />
+              <figcaption><span>02</span><p><strong>No hace falta personalizar la instalación.</strong> Si estas opciones aparecen seleccionadas, continuá con los valores predeterminados.</p></figcaption>
+            </figure>
+            <aside class="note"><strong>Herramientas adicionales</strong><p>No son necesarias para esta primera semana. Podés dejar esa opción sin seleccionar y completar la instalación normal.</p></aside>
+          </div>
+        </section>
+
+        <section id="reinicio" class="step-section compact-step">
+          <div class="step-index">03</div>
+          <div class="step-body">
+            <p class="section-label">ACTUALIZÁ EL ENTORNO</p>
+            <h2>Reiniciá Visual Studio Code</h2>
+            <p>Cuando el instalador termine, cerrá <strong>por completo</strong> Visual Studio Code y volvé a abrirlo. Las terminales que estaban abiertas antes de instalar Node.js todavía no conocen la actualización del sistema.</p>
+            <div class="restart-flow" aria-label="Secuencia para reiniciar Visual Studio Code">
+              <div><span>1</span><strong>Cerrá VS Code</strong><small>Todas las ventanas</small></div>
+              <i>→</i>
+              <div><span>2</span><strong>Abrilo otra vez</strong><small>Esperá a que cargue</small></div>
+              <i>→</i>
+              <div><span>3</span><strong>Nueva terminal</strong><small>Terminal → New Terminal</small></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="verificacion" class="step-section">
+          <div class="step-index">04</div>
+          <div class="step-body">
+            <p class="section-label">COMPROBACIÓN FINAL</p>
+            <h2>Verificá Node.js y npm</h2>
+            <p>Abrí una terminal nueva y ejecutá estos comandos, uno por vez. Cada uno debe responder con un número de versión. No hace falta que coincida con el ejemplo.</p>
+
+            <div class="code-window">
+              <div class="code-top"><span>Comprobación de la instalación</span><button id="copy-commands" type="button">COPIAR</button></div>
+              <pre><code id="verification-code">node --version
+npm --version</code></pre>
+              <p id="copy-status" role="status"></p>
+            </div>
+
+            <figure>
+              <img src="node-verificacion-terminal.png" alt="Captura simulada de Visual Studio Code mostrando las versiones de Node.js y npm en la terminal." />
+              <figcaption><span>03</span><p><strong>Dos números significan que está listo.</strong> La versión exacta puede variar. Cuando reaparece el prompt, la terminal espera el próximo comando.</p></figcaption>
+            </figure>
+
+            <section class="version-check" aria-labelledby="version-check-title">
+              <div>
+                <span>COMPROBACIÓN GUIADA</span>
+                <h3 id="version-check-title">¿Qué respondió tu terminal?</h3>
+                <p>Podés escribir respuestas como <code>v24.4.1</code> y <code>11.4.2</code>.</p>
+              </div>
+              <div class="version-fields">
+                <label>Node.js<input id="node-version" type="text" inputmode="text" placeholder="v24.4.1" autocomplete="off" /><small id="node-feedback"></small></label>
+                <label>npm<input id="npm-version" type="text" inputmode="text" placeholder="11.4.2" autocomplete="off" /><small id="npm-feedback"></small></label>
+              </div>
+              <div id="ready-message" class="ready-message" hidden><span>✓</span><strong>Node.js y npm responden. Tu entorno está listo.</strong></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="problemas" class="troubleshooting">
+          <p class="section-label">SI LA TERMINAL NO RECONOCE EL COMANDO</p>
+          <h2>Primero comprobá, después modificá</h2>
+          <div class="problem-table">
+            <div class="table-head"><span>PROBLEMA</span><span>PRIMERA COMPROBACIÓN</span><span>SIGUIENTE PASO</span></div>
+            <div><code>node no se reconoce</code><p>VS Code pudo quedar abierto durante la instalación.</p><small>Cerralo completamente, volvé a abrirlo y creá una terminal nueva.</small></div>
+            <div><code>npm no se reconoce</code><p>npm o la configuración del PATH podrían no haberse instalado.</p><small>Ejecutá nuevamente el instalador y conservá los componentes predeterminados.</small></div>
+            <div><code>npm.ps1 bloqueado</code><p>PowerShell puede impedir la ejecución del script de npm.</p><small>No cambies la seguridad por tu cuenta: guardá el mensaje completo y consultalo con el docente.</small></div>
+          </div>
+        </section>
+
+        <section class="checkpoint" aria-labelledby="checkpoint-title">
+          <div class="checkpoint-head">
+            <div><span>LISTA DE CONTROL DE NODE.JS</span><h2 id="checkpoint-title">Confirmá cada paso</h2></div>
+            <div class="meter" aria-hidden="true"><i id="checkpoint-progress"></i></div>
+          </div>
+          <div class="checklist">
+            <label><input type="checkbox" data-check="0" /><span>✓</span>Descargué la versión LTS.</label>
+            <label><input type="checkbox" data-check="1" /><span>✓</span>Conservé npm y PATH seleccionados.</label>
+            <label><input type="checkbox" data-check="2" /><span>✓</span>Reinicié Visual Studio Code.</label>
+            <label><input type="checkbox" data-check="3" /><span>✓</span>Ambos comandos muestran una versión.</label>
+          </div>
+          <div class="checkpoint-foot"><strong id="checkpoint-count">0 de 4 pasos completados</strong><button id="reset-progress" type="button">Reiniciar lista</button></div>
+          <div id="completion" class="completion" hidden><span>✓</span><div><strong>Instalación confirmada</strong><p>Ya podés continuar con la preparación de Git.</p></div></div>
+        </section>
+      </article>
+    </main>
+
+    <footer><span>NODERA</span><p>Semana 1 · Preparación desde cero · Instalación de Node.js</p></footer>
+  </body>
+</html>

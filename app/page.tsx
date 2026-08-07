@@ -3,9 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import type PocketBase from "pocketbase";
 import type { ReactNode } from "react";
 import WeeklyCohortHome from "@/components/cohorts/WeeklyCohortHome";
+import TeacherAttentionWorkspace from "@/components/teacher/TeacherAttentionWorkspace";
 import { Badge, Card, CardContent, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { getAccessibleCohorts } from "@/lib/cohorts/access";
 import { createServerClient, getCurrentUser } from "@/lib/pocketbase-server";
+import { loadTeacherAttentionData } from "@/lib/teacher/data";
 import type { Assignment, Cohort, Delivery, Inquiry, Review, Sprint, User, Week } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +19,7 @@ export default async function Home() {
   const pb = await createServerClient();
   if (user.role === "estudiante") return <StudentHome user={user} cohort={cohort} pb={pb} canSwitchCohorts={cohorts.length > 1} />;
   if (user.role === "admin") return <AdminHome user={user} cohort={cohort} pb={pb} cohortCount={cohorts.length} />;
-  if (user.role === "docente") return <TeacherHome user={user} cohort={cohort} pb={pb} />;
+  if (user.role === "docente") return <TeacherHome user={user} cohorts={cohorts} pb={pb} />;
   notFound();
 }
 
@@ -42,25 +44,14 @@ async function StudentHome({ user, cohort, pb, canSwitchCohorts }: { user: User;
   </HomeFrame>;
 }
 
-async function TeacherHome({ user, cohort, pb }: { user: User; cohort: Cohort | null; pb: PocketBase }) {
-  if (!cohort) return <HomeFrame><PageHeader eyebrow="Panel docente" title={`Hola, ${firstName(user)}`} /><EmptyState title="No hay cohortes disponibles" description="Solicitá acceso a una cohorte para comenzar a gestionarla." /></HomeFrame>;
-  const weekly = cohort.mode === "weekly";
-  const [students, assignments, deliveries, inquiries, reviews, requests, followUp] = await Promise.all([
-    count(pb, "cohort_enrollments", pb.filter("cohort = {:cohort} && status = 'active'", { cohort: cohort.id })),
-    count(pb, "assignments", pb.filter(`${weekly ? "week.cohort" : "sprint.cohort"} = {:cohort}`, { cohort: cohort.id })),
-    count(pb, "deliveries", pb.filter(`${weekly ? "assignment.week.cohort" : "assignment.sprint.cohort"} = {:cohort}`, { cohort: cohort.id })),
-    count(pb, "inquiries", pb.filter("cohort = {:cohort} && status = 'Pendiente'", { cohort: cohort.id })),
-    weekly ? Promise.resolve(0) : count(pb, "reviews", pb.filter("sprint.cohort = {:cohort} && status = 'pending'", { cohort: cohort.id })),
-    count(pb, "enrollment_requests", pb.filter("cohort = {:cohort} && status = 'pending'", { cohort: cohort.id })),
-    weekly ? Promise.resolve(0) : count(pb, "student_surveys", pb.filter("sprint.cohort = {:cohort} && futurePlan = 'contact_teacher'", { cohort: cohort.id })),
-  ]);
-  const missing = Math.max(0, students * assignments - deliveries);
-  return <HomeFrame><PageHeader eyebrow="Panel docente" title={`Hola, ${firstName(user)}`} description={`Resumen operativo de ${cohort.name}.`} actions={<LinkButton href="/cohorts" variant="secondary">Cambiar cohorte</LinkButton>} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><HomeMetric label="Consultas pendientes" value={inquiries} description="Requieren respuesta o resolución" href={`/cohorts/${cohort.id}/inquiries`} priority={inquiries > 0} /><HomeMetric label="Entregas faltantes" value={missing} description={`${deliveries} entregas registradas`} href={`/cohorts/${cohort.id}/dashboard`} /><HomeMetric label="Próximas revisiones" value={reviews} description="Turnos pendientes de la cohorte" href={weekly ? `/cohorts/${cohort.id}` : `/cohorts/${cohort.id}/reviews`} /><HomeMetric label="Solicitudes" value={requests} description="Esperan verificación de acceso" href="/staff/enrollment-requests" priority={requests > 0} /></div>{followUp > 0 && <Card className="border-warning/30"><CardContent><Badge variant="warning">Seguimiento</Badge><h2 className="mt-3 text-xl font-bold">{followUp} estudiante{followUp === 1 ? "" : "s"} solicitó contacto docente</h2><LinkButton href={`/cohorts/${cohort.id}/dashboard?detail=follow-up`} className="mt-4" variant="secondary">Abrir seguimiento</LinkButton></CardContent></Card>}<QuickLinks cohort={cohort} /></HomeFrame>;
+async function TeacherHome({ user, cohorts, pb }: { user: User; cohorts: Cohort[]; pb: PocketBase }) {
+  const data = await loadTeacherAttentionData(pb, cohorts);
+  return <TeacherAttentionWorkspace user={user} data={data} retryHref="/" />;
 }
 
 async function AdminHome({ user, cohort, pb, cohortCount }: { user: User; cohort: Cohort | null; pb: PocketBase; cohortCount: number }) {
   const [users, activeEnrollments, requests] = await Promise.all([count(pb, "users", ""), count(pb, "cohort_enrollments", "status = 'active'"), count(pb, "enrollment_requests", "status = 'pending'")]);
-  return <HomeFrame><PageHeader eyebrow="Administración" title={`Hola, ${firstName(user)}`} description="Estado general de la plataforma y accesos directos a las operaciones frecuentes." /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><HomeMetric label="Cohortes" value={cohortCount} description="Activas y archivadas accesibles" href="/admin/cohorts" /><HomeMetric label="Usuarios" value={users} description="Cuentas registradas" href="/admin/users" /><HomeMetric label="Matrículas activas" value={activeEnrollments} description="En todas las cohortes" href="/admin/users?status=active" /><HomeMetric label="Solicitudes pendientes" value={requests} description="Requieren una decisión" href="/staff/enrollment-requests" priority={requests > 0} /></div><div className="grid gap-5 lg:grid-cols-2"><ActionCard title="Gestionar cohortes" description="Creá cursadas, actualizá su configuración y administrá matrículas." href="/admin/cohorts" action="Abrir cohortes" /><ActionCard title="Gestionar usuarios" description="Buscá personas, revisá sus inscripciones y actualizá roles." href="/admin/users" action="Abrir usuarios" /></div>{cohort && <QuickLinks cohort={cohort} />}</HomeFrame>;
+  return <HomeFrame><PageHeader eyebrow="Administración" title={`Hola, ${firstName(user)}`} description="Estado general de la plataforma y accesos directos a las operaciones frecuentes." actions={<LinkButton href="/staff/attention" variant="secondary">Atención docente</LinkButton>} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><HomeMetric label="Cohortes" value={cohortCount} description="Activas y archivadas accesibles" href="/admin/cohorts" /><HomeMetric label="Usuarios" value={users} description="Cuentas registradas" href="/admin/users" /><HomeMetric label="Matrículas activas" value={activeEnrollments} description="En todas las cohortes" href="/admin/users?status=active" /><HomeMetric label="Solicitudes pendientes" value={requests} description="Requieren una decisión" href="/staff/enrollment-requests" priority={requests > 0} /></div><div className="grid gap-5 lg:grid-cols-2"><ActionCard title="Gestionar cohortes" description="Creá cursadas, actualizá su configuración y administrá matrículas." href="/admin/cohorts" action="Abrir cohortes" /><ActionCard title="Gestionar usuarios" description="Buscá personas, revisá sus inscripciones y actualizá roles." href="/admin/users" action="Abrir usuarios" /></div>{cohort && <QuickLinks cohort={cohort} />}</HomeFrame>;
 }
 
 function HomeFrame({ children }: { children: ReactNode }) { return <main className="mx-auto w-full max-w-[var(--content-dashboard)] space-y-8 px-4 py-8 lg:px-8">{children}</main>; }

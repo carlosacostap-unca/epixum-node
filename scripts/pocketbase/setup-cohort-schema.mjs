@@ -1,5 +1,5 @@
 import { createAdminClient, outputJson } from "./client.mjs";
-import { COLLECTION_DEFINITIONS, EXISTING_COLLECTION_ADDITIONS, materializeField, mergeIndexes } from "./cohort-schema.mjs";
+import { COLLECTION_DEFINITIONS, EXISTING_COLLECTION_ADDITIONS, materializeField, mergeIndexes, reconcileFieldDefinition } from "./cohort-schema.mjs";
 
 const apply = process.argv.includes("--apply");
 const pb = await createAdminClient();
@@ -29,10 +29,18 @@ for (const [name, definition] of Object.entries(COLLECTION_DEFINITIONS)) {
   const fields = [...collection.fields];
   let changed = false;
   for (const field of definition.fields) {
-    if (!fields.some((existing) => existing.name === field.name)) {
+    const existingIndex = fields.findIndex((existing) => existing.name === field.name);
+    if (existingIndex === -1) {
       fields.push(materializeField(field, byName, !apply));
       operations.push({ action: "add_field", collection: name, field: field.name });
       changed = true;
+    } else {
+      const reconciled = reconcileFieldDefinition(fields[existingIndex], field, byName, !apply);
+      if (reconciled.changed) {
+        fields[existingIndex] = reconciled.field;
+        operations.push({ action: "update_field", collection: name, field: field.name, properties: reconciled.changedKeys });
+        changed = true;
+      }
     }
   }
   const indexes = mergeIndexes(collection.indexes, definition.indexes);

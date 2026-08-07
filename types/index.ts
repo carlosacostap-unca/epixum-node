@@ -1,3 +1,6 @@
+import type { ContentBaseKind, ContentBlock, ContentSectionStatus } from "../lib/content/domain";
+import type { ActivityManifestEntry } from "../lib/content/revisions";
+
 export interface BaseModel {
   id: string;
   created: string;
@@ -217,6 +220,95 @@ export interface Week extends BaseModel {
   publicationStatus: WeekPublicationStatus;
   publishedAt?: string;
   expand?: { cohort?: Cohort; classes?: Class[]; assignments?: Assignment[] };
+}
+
+export interface ContentSection extends BaseModel {
+  cohort: string;
+  week: string;
+  position: number;
+  title: string;
+  summary?: string;
+  status: ContentSectionStatus;
+  scheduledAt?: string;
+  publishedAt?: string;
+  currentRevision?: string;
+  sourceBaseVersion?: string;
+  sourceKey?: string;
+}
+
+export interface ContentSectionRevision extends BaseModel {
+  section: string;
+  revisionNumber: number;
+  blocks: ContentBlock[];
+  activityManifest: ActivityManifestEntry[];
+  requirementsRevision: string;
+  note?: string;
+  author: string;
+}
+
+export type ContentActivityOutcome = "correct" | "incorrect" | "satisfied" | "pending";
+
+export interface ContentActivityAttempt extends BaseModel {
+  cohort: string;
+  week: string;
+  section: string;
+  sectionRevision: string;
+  student: string;
+  activityKey: string;
+  activityRevision: string;
+  activityKind: ActivityManifestEntry["kind"];
+  response: unknown;
+  outcome: ContentActivityOutcome;
+  attemptKey: string;
+  attemptedAt: string;
+}
+
+export interface ContentSectionProgress extends BaseModel {
+  cohort: string;
+  week: string;
+  section: string;
+  student: string;
+  lastRevision?: string;
+  firstViewedAt: string;
+  lastViewedAt: string;
+  viewCount: number;
+  lastViewKey?: string;
+  lastBlockKey?: string;
+  lastBlockIndex?: number;
+  lastProgressKey?: string;
+  masteredActivities: Record<string, string>;
+  requirementsRevision: string;
+  completedAt?: string;
+}
+
+export interface ContentAsset extends BaseModel {
+  kind: "image" | "video";
+  file?: string;
+  externalUrl?: string;
+  alt?: string;
+  title?: string;
+  importKey?: string;
+  sourceBaseVersion?: string;
+  author: string;
+}
+
+export interface ContentBase extends BaseModel {
+  name: string;
+  kind: ContentBaseKind;
+  description?: string;
+  active: boolean;
+  currentVersion?: string;
+  createdBy: string;
+}
+
+export interface ContentBaseVersion extends BaseModel {
+  base: string;
+  versionNumber: number;
+  snapshot: unknown;
+  sourceKind: "copy" | "promotion" | "restore" | "import";
+  sourceReference?: string;
+  note?: string;
+  createdBy: string;
 }
 
 export interface JavascriptAssessmentResult extends BaseModel {

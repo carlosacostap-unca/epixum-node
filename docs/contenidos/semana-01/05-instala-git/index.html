@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Guía paso a paso para instalar, verificar y configurar Git en Windows." />
+    <title>Instalá Git | Semana 1</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#inicio" aria-label="Ir al inicio"><span class="brand-mark">N</span><span>Nodera</span></a>
+      <div class="course-title"><span>DESARROLLO BACK END CON NODE.JS</span><strong>Semana 1</strong></div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <p class="eyebrow"><span>02.3</span> PREPARACIÓN DESDE CERO</p>
+        <div class="hero-grid">
+          <div>
+            <h1>Instalá <em>Git</em></h1>
+            <p class="lead">Prepará la herramienta que registra la historia de tus proyectos y configura la identidad de cada versión.</p>
+          </div>
+          <aside class="definition-card git-card">
+            <span>UNA DISTINCIÓN IMPORTANTE</span>
+            <dl>
+              <div><dt>Git</dt><dd>Registra cambios en tu computadora.</dd></div>
+              <div><dt>GitHub</dt><dd>Publica repositorios en Internet.</dd></div>
+            </dl>
+          </aside>
+        </div>
+        <aside class="before-start">
+          <strong>En esta pantalla</strong>
+          <p>Instalaremos Git localmente. Todavía no necesitás una cuenta de GitHub ni vas a subir archivos a Internet.</p>
+        </aside>
+      </section>
+
+      <nav class="step-nav five" aria-label="Pasos de instalación y configuración">
+        <a href="#descarga"><span>01</span><b>Descargar</b><small>Git para Windows</small></a>
+        <a href="#instalador"><span>02</span><b>Instalar</b><small>Opciones recomendadas</small></a>
+        <a href="#verificacion"><span>03</span><b>Verificar</b><small>git --version</small></a>
+        <a href="#identidad"><span>04</span><b>Configurar</b><small>Nombre y correo</small></a>
+        <a href="#consulta"><span>05</span><b>Comprobar</b><small>Datos guardados</small></a>
+      </nav>
+
+      <article class="lesson">
+        <section id="descarga" class="step-section">
+          <div class="step-index">01</div>
+          <div class="step-body">
+            <p class="section-label">FUENTE OFICIAL</p>
+            <h2>Descargá Git para Windows</h2>
+            <p>Entrá en la <a href="https://git-scm.com/install/windows" target="_blank" rel="noreferrer">página oficial de Git para Windows ↗</a> y descargá el instalador recomendado.</p>
+            <p>En la mayoría de las computadoras actuales corresponde la opción de <strong>64 bits</strong>. Si el equipo pertenece a la institución o no estás seguro, consultá antes de instalar.</p>
+            <figure>
+              <img src="git-descarga-windows.png" alt="Captura simulada de la descarga del instalador de Git para Windows de 64 bits." />
+              <figcaption><span>01</span><p><strong>Descargá únicamente desde el sitio oficial.</strong> La página debe indicar claramente Git para Windows.</p></figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section id="instalador" class="step-section">
+          <div class="step-index">02</div>
+          <div class="step-body">
+            <p class="section-label">INSTALACIÓN ESTÁNDAR</p>
+            <h2>Conservá las opciones recomendadas</h2>
+            <p>Abrí el archivo descargado y avanzá con <strong>Siguiente</strong>. No necesitás cambiar la carpeta de instalación, el editor predeterminado, el método de conexión ni las opciones avanzadas.</p>
+            <div class="component-grid git-components">
+              <article><span>✓</span><div><strong>Git desde la terminal</strong><p>Debe quedar agregado al PATH.</p></div></article>
+              <article><span>✓</span><div><strong>OpenSSH</strong><p>Conservá la configuración predeterminada.</p></div></article>
+              <article><span>✓</span><div><strong>Credential Manager</strong><p>Mantené la opción recomendada.</p></div></article>
+            </div>
+            <figure>
+              <img src="git-instalador-opciones.png" alt="Captura simulada del instalador de Git con las opciones recomendadas seleccionadas." />
+              <figcaption><span>02</span><p><strong>La captura resume las opciones importantes.</strong> Las selecciones predeterminadas son suficientes para este recorrido.</p></figcaption>
+            </figure>
+            <aside class="note"><strong>No memorices todas las pantallas</strong><p>No usaremos Git Bash, claves SSH ni configuraciones avanzadas durante esta introducción.</p></aside>
+          </div>
+        </section>
+
+        <section id="verificacion" class="step-section compact-step">
+          <div class="step-index">03</div>
+          <div class="step-body">
+            <p class="section-label">COMPROBACIÓN INICIAL</p>
+            <h2>Reiniciá VS Code y verificá Git</h2>
+            <p>Cerrá por completo Visual Studio Code, volvé a abrirlo y creá una terminal nueva. Ejecutá el siguiente comando:</p>
+            <div class="verification-command">
+              <span>$</span><code>git --version</code><button type="button" data-copy="git --version">COPIAR</button>
+            </div>
+            <div class="response-check">
+              <label for="git-version">¿Qué respondió tu terminal?</label>
+              <div><input id="git-version" type="text" placeholder="git version 2.50.1" autocomplete="off" /><span id="git-feedback">Esperando una respuesta.</span></div>
+            </div>
+            <p class="note-inline">Una respuesta que comienza con <code>git version</code> confirma que la instalación está disponible. El número exacto puede variar.</p>
+          </div>
+        </section>
+
+        <section id="identidad" class="step-section">
+          <div class="step-index">04</div>
+          <div class="step-body">
+            <p class="section-label">AUTORÍA DE LOS COMMITS</p>
+            <h2>Configurá tu identidad</h2>
+            <p>Antes de guardar la primera versión, indicá el nombre y el correo que Git agregará a tus commits. La opción <code>--global</code> aplica esta configuración a los próximos proyectos de tu usuario en esta computadora.</p>
+
+            <section class="identity-builder" aria-labelledby="builder-title">
+              <div class="builder-copy">
+                <span>GENERADOR DE COMANDOS</span>
+                <h3 id="builder-title">Completá tus datos</h3>
+                <p>Los datos se usan solamente para formar los comandos en esta página. No se envían a ningún lugar.</p>
+              </div>
+              <div class="identity-fields">
+                <label>Nombre real<input id="student-name" type="text" placeholder="Ana Pérez" autocomplete="name" /></label>
+                <label>Correo verificable<input id="student-email" type="email" placeholder="ana@ejemplo.com" autocomplete="email" /></label>
+              </div>
+              <div class="code-window generated-code">
+                <div class="code-top"><span>Configuración inicial de Git</span><button id="copy-config" type="button">COPIAR</button></div>
+                <pre><code id="config-code">git config --global user.name "Tu Nombre"
+git config --global user.email "tu-correo@ejemplo.com"
+git config --global init.defaultBranch main</code></pre>
+                <p id="config-status" role="status"></p>
+              </div>
+            </section>
+
+            <figure>
+              <img src="git-verificacion-configuracion.png" alt="Captura simulada de Visual Studio Code verificando Git y configurando nombre y correo." />
+              <figcaption><span>03</span><p><strong>Estos comandos normalmente no muestran una respuesta.</strong> Si el prompt vuelve sin un error, Git guardó la configuración.</p></figcaption>
+            </figure>
+            <aside class="note"><strong>Usá un correo que puedas verificar</strong><p>Más adelante conviene que coincida con uno agregado a GitHub para asociar correctamente los commits. Esta configuración no publica tu correo ni crea una cuenta.</p></aside>
+          </div>
+        </section>
+
+        <section id="consulta" class="step-section">
+          <div class="step-index">05</div>
+          <div class="step-body">
+            <p class="section-label">LECTURA DE CONFIGURACIÓN</p>
+            <h2>Comprobá los datos guardados</h2>
+            <p>Consultá cada valor por separado. La terminal debe devolver el nombre, el correo y la rama inicial configurados.</p>
+            <div class="code-window">
+              <div class="code-top"><span>Consultar la identidad de Git</span><button id="copy-query" type="button">COPIAR</button></div>
+              <pre><code id="query-code">git config --global user.name
+git config --global user.email
+git config --global init.defaultBranch</code></pre>
+              <p id="query-status" role="status"></p>
+            </div>
+            <div class="expected-result"><span>RESULTADO ESPERADO</span><div><code>Tu nombre</code><code>tu-correo@ejemplo.com</code><code>main</code></div></div>
+          </div>
+        </section>
+
+        <section id="problemas" class="troubleshooting">
+          <p class="section-label">SI ALGO NO FUNCIONA</p>
+          <h2>Primero identificá el problema</h2>
+          <div class="problem-table">
+            <div class="table-head"><span>PROBLEMA</span><span>QUÉ PUEDE OCURRIR</span><span>QUÉ HACER</span></div>
+            <div><code>git no se reconoce</code><p>La terminal estaba abierta antes de instalar o Git no se agregó al PATH.</p><small>Reiniciá VS Code. Si continúa, ejecutá nuevamente el instalador con las opciones recomendadas.</small></div>
+            <div><code>Access denied</code><p>La cuenta de Windows no tiene permisos para completar la instalación.</p><small>No cambies permisos del equipo: pedí asistencia al responsable del aula.</small></div>
+            <div><code>Dato incorrecto</code><p>El nombre o correo quedó escrito con un error.</p><small>Volvé a ejecutar el comando correcto; el nuevo valor reemplazará al anterior.</small></div>
+          </div>
+        </section>
+
+        <section class="checkpoint" aria-labelledby="checkpoint-title">
+          <div class="checkpoint-head">
+            <div><span>LISTA DE CONTROL DE GIT</span><h2 id="checkpoint-title">Confirmá la preparación</h2></div>
+            <div class="meter"><i id="checkpoint-progress"></i></div>
+          </div>
+          <div class="checklist">
+            <label><input type="checkbox" data-check="0" /><span>✓</span>Instalé Git desde el sitio oficial.</label>
+            <label><input type="checkbox" data-check="1" /><span>✓</span><code>git --version</code> responde.</label>
+            <label><input type="checkbox" data-check="2" /><span>✓</span>Configuré mi nombre real.</label>
+            <label><input type="checkbox" data-check="3" /><span>✓</span>Verifiqué el correo guardado.</label>
+          </div>
+          <div class="checkpoint-foot"><strong id="checkpoint-count">0 de 4 pasos completados</strong><button id="reset-progress" type="button">Reiniciar lista</button></div>
+          <div id="completion" class="completion" hidden><span>✓</span><div><strong>Git está preparado</strong><p>Ya podés continuar con la creación de tu cuenta de GitHub.</p></div></div>
+        </section>
+      </article>
+    </main>
+
+    <footer><span>NODERA</span><p>Semana 1 · Preparación desde cero · Instalación de Git</p></footer>
+  </body>
+</html>

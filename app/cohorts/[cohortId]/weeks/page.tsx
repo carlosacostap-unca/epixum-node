@@ -4,10 +4,16 @@ import WeekForm from "@/components/cohorts/WeekForm";
 import AcademicCollection from "@/components/cohorts/AcademicCollection";
 import { buildAcademicCollection } from "@/lib/cohorts/academic-collection";
 import { buttonStyles, PageHeader } from "@/components/ui";
+import { getStudentWeekContent } from "@/lib/content/student";
+import { studentWeekContentHref } from "@/lib/content/reader";
 
 export default async function WeeksPage({ params }: { params: Promise<{ cohortId: string }> }) {
   const { cohortId } = await params; const context = await requireCohortAccess(cohortId, { capability: "weeks" }); const weeks = await getWeeks(cohortId); const staff = context.user.role !== "estudiante"; const create = createWeekAction.bind(null, cohortId);
-  const items = await buildAcademicCollection(context.pb, { cohortId, containers: weeks, relation: "week", studentId: staff ? undefined : context.user.id });
+  const [baseItems, studentContent] = await Promise.all([
+    buildAcademicCollection(context.pb, { cohortId, containers: weeks, relation: "week", studentId: staff ? undefined : context.user.id }),
+    staff ? Promise.resolve([]) : Promise.all(weeks.map((week) => getStudentWeekContent(cohortId, week.id))),
+  ]);
+  const items = staff ? baseItems : baseItems.map((item, index) => ({ ...item, href: studentWeekContentHref(cohortId, item.id, studentContent[index]?.continueSection) }));
   return <main className="mx-auto w-full max-w-[var(--content-reading)] space-y-8 px-4 py-8 lg:px-8">
     <PageHeader eyebrow={context.cohort.name} title="Semanas" description={staff ? "Organizá y publicá el recorrido de aprendizaje de la cohorte." : "Avanzá en orden y revisá tus clases, trabajos y entregas."} />
     {staff && <details className="group rounded-lg border bg-surface"><summary className="list-none p-4"><span className={buttonStyles()}>Crear semana</span></summary><div className="border-t p-4"><WeekForm action={create} /></div></details>}

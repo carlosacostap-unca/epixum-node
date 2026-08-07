@@ -40,7 +40,7 @@ export const existingStudentEnrollmentInputSchema = z.object({
 });
 
 export const weekInputSchema = z.object({
-  number: z.coerce.number().int().min(1),
+  number: z.coerce.number().int().min(0),
   title: z.string().trim().min(2).max(180),
   description: z.string().max(100_000).default(""),
   startDate: z.string().optional(),

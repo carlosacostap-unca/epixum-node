@@ -1,0 +1,1501 @@
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { JSDOM } from "jsdom";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const sourceRoot = path.join(root, "docs", "contenidos", "semana-01");
+const outputPath = path.join(root, "content", "week-01.manifest.json");
+const excluded = new Set(["02-diagnostico-javascript"]);
+const learningOrder = [
+  "01-resumen", "03-conoce-la-terminal", "04-instala-nodejs", "05-instala-git",
+  "06-crea-cuenta-github", "08-que-hace-backend", "09-runtime-nodejs",
+  "10-event-loop", "11-modulos", "12-programa-modular", "13-errores-frecuentes",
+  "07-publica-primera-entrega", "15-evidencia-avance", "14-cierre-glosario",
+];
+const foldersOnDisk = new Set((await readdir(sourceRoot, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+for (const folder of learningOrder) if (!foldersOnDisk.has(folder)) throw new Error(`Falta la carpeta ${folder}.`);
+
+const sections = [];
+const assets = [];
+for (const [position, folder] of learningOrder.entries()) {
+  const html = curateSourceHtml(await readFile(path.join(sourceRoot, folder, "index.html"), "utf8"));
+  const document = new JSDOM(html).window.document;
+  const sourceKey = `week01_${folder.replace(/^\d+-/, "").replaceAll("-", "_")}`;
+  const title = clean(document.querySelector("h1")?.textContent || folder);
+  const summary = clean(document.querySelector(".lead")?.textContent || document.querySelector('meta[name="description"]')?.getAttribute("content") || "");
+  const usedKeys = new Set();
+  const key = (suffix) => uniqueKey(`${sourceKey}_${suffix}`, usedKeys);
+  const blocks = [];
+  const content = document.querySelector("article.lesson .content") || document.querySelector("article.lesson") || document.querySelector("main .content") || document.querySelector("main");
+  if (!content) throw new Error(`No se encontró contenido principal en ${folder}.`);
+
+  const context = { folder, sourceKey, title, key, blocks, assets };
+  for (const child of content.children) convertElement(child, context);
+  blocks.push(...specialEditorialBlocks(folder, sourceKey, key));
+  blocks.push(...specialInteractiveBlocks(folder, sourceKey, key));
+  sections.push({ sourceKey, sourceFolder: folder, position: position + 1, title, summary, blocks });
+}
+
+curateOverviewSection(sections);
+curateNodeInstallationSection(sections);
+curateGitInstallationSection(sections);
+curateGitHubAccountSection(sections);
+curateBackendRoleSection(sections);
+curateNodeRuntimeSection(sections);
+curateEventLoopSection(sections);
+curateCommonJsModulesSection(sections);
+curateModularProgramSection(sections);
+curateTroubleshootingSection(sections);
+curateTerminalSection(sections);
+curateSectionFlow(sections);
+curateLocalGitSection(sections);
+curateGitHubPublicationSection(sections);
+curateWeekClosureSection(sections);
+
+const manifest = { schemaVersion: 2, source: "docs/contenidos/semana-01", excludedFolders: [...excluded], sections, assets };
+await mkdir(path.dirname(outputPath), { recursive: true });
+await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+console.log(JSON.stringify({ output: path.relative(root, outputPath), sections: sections.length, assets: assets.length, blocks: sections.reduce((sum, section) => sum + section.blocks.length, 0), excluded: [...excluded] }, null, 2));
+
+function convertElement(element, context) {
+  if (element.matches(".section-number,.step-index,.section-label,.eyebrow,[data-complete],.completion,.checkpoint-foot")) return;
+  if (element.matches(".callout")) return addCallout(element, context);
+  if (element.matches(".check,.checkpoint")) return addChecklist(element, context);
+  if (element.matches(".glossary")) return addGlossary(element, context);
+  if (element.matches("figure")) return addFigure(element, context);
+  if (element.matches(".code,.code-window,.guided-terminal") && element.querySelector("pre code")) return addCode(element, context);
+  if (element.matches(".cards,.concept-grid,.component-grid,.error-grid,.error-cards,.security-cards,.compare,.intro-grid,.account-steps,.command-grid,.command-reference,.problem-table,.three-command-loop") || isEditorialGrid(element)) return addCards(element, context);
+  if (element.matches("ol.route,ul.route")) return addRoute(element, context);
+  if (/^H[234]$/.test(element.tagName)) return addRichNode(element, context);
+  if (element.tagName === "P" && !element.matches("[data-complete],.copy-status")) return addRichNode(element, context);
+  for (const child of element.children) convertElement(child, context);
+}
+
+function isEditorialGrid(element) {
+  const children = [...element.children];
+  return children.length > 1 && children.every((child) => child.matches("article,div,li") && child.querySelector(":scope > p") && child.querySelector(":scope > h3, :scope > h4, :scope > strong, :scope > code, :scope > span"));
+}
+
+function addCallout(element, context) {
+  const eyebrow = clean(element.querySelector(":scope > span, :scope > small")?.textContent || "");
+  const title = clean(element.querySelector(":scope > strong, :scope > h3")?.textContent || "Para recordar");
+  const paragraphs = [...element.querySelectorAll(":scope > p")].map((item) => richNode(item)).filter(Boolean);
+  context.blocks.push({ key: context.key("callout"), type: "callout", eyebrow: eyebrow || undefined, title, body: { type: "doc", content: paragraphs.length ? paragraphs : [{ type: "paragraph", content: textContent(title) }] }, tone: calloutTone(eyebrow, title) });
+}
+
+function addChecklist(element, context) {
+  const items = [...element.querySelectorAll('label:has(input[type="checkbox"])')].map((label, index) => ({ key: `${context.sourceKey}_check_${index + 1}`, label: clean(label.textContent?.replace("✓", "") || "") })).filter((item) => item.label);
+  if (!items.length) return;
+  context.blocks.push({ key: context.key("checklist"), type: "checklist", activityKey: `${context.sourceKey}_checklist`, required: ["12-programa-modular", "15-evidencia-avance"].includes(context.folder), title: withoutNumber(clean(element.querySelector("h2,strong")?.textContent || "Comprobación")), description: "Usá esta lista como autoevaluación y evidencia personal del recorrido.", items });
+}
+
+function addGlossary(element, context) {
+  const entries = element.querySelectorAll("details").length
+    ? [...element.querySelectorAll("details")].map((item) => ({ term: item.querySelector("summary"), definition: item.querySelector("p") }))
+    : [...element.querySelectorAll("dt,h3,strong")].map((term) => ({ term, definition: term.nextElementSibling }));
+  const items = entries.map((entry, index) => ({ key: `${context.sourceKey}_term_${index + 1}`, term: clean(entry.term?.textContent), definition: clean(entry.definition?.textContent || "") })).filter((item) => item.term && item.definition);
+  if (items.length) context.blocks.push({ key: context.key("glossary"), type: "glossary", title: "Glosario", items });
+}
+
+function addFigure(element, context) {
+  const image = element.querySelector("img");
+  const source = image?.getAttribute("src");
+  if (!image || !source || /^(?:https?:|data:)/.test(source)) return;
+  const imageIndex = context.assets.filter((asset) => asset.key.startsWith(`${context.sourceKey}_image_`)).length + 1;
+  const assetKey = `${context.sourceKey}_image_${imageIndex}`;
+  const alt = clean(image.getAttribute("alt") || `Ilustración de ${context.title}`);
+  context.assets.push({ key: assetKey, kind: "image", sourcePath: path.posix.join("docs/contenidos/semana-01", context.folder, source), alt, title: alt });
+  let caption = cleanWithChildSpacing(element.querySelector("figcaption"));
+  if (["04-instala-nodejs", "05-instala-git", "06-crea-cuenta-github", "07-publica-primera-entrega"].includes(context.folder)) caption = `Captura ilustrativa. ${caption}`.trim();
+  if (context.folder === "15-evidencia-avance" && source.includes("repositorio-esperado")) caption = `${caption} En esta versión, el archivo generado por el programa se llama historial.txt.`;
+  context.blocks.push({ key: context.key(`image_${imageIndex}`), type: "image", source: { assetId: assetKey }, alt, caption: caption || undefined });
+}
+
+function addCode(element, context) {
+  const code = element.querySelector("pre code");
+  const value = code?.textContent?.trim();
+  if (!value) return;
+  const title = clean(element.querySelector(":scope > div strong, :scope > div b, :scope > div span")?.textContent || "Ejemplo para copiar");
+  const language = [...code.classList].find((name) => name.startsWith("language-"))?.slice(9) || inferLanguage(value);
+  context.blocks.push({ key: context.key("code"), type: "code", title, language, code: value });
+}
+
+function addCards(element, context) {
+  const items = [...element.children].map((item, index) => ({
+    key: `${context.sourceKey}_card_${context.blocks.length + 1}_${index + 1}`,
+    eyebrow: clean(item.querySelector(":scope > span, :scope > small, :scope > code")?.textContent || "") || undefined,
+    title: clean(item.querySelector(":scope > h3, :scope > h4, :scope > strong")?.textContent || `Idea ${index + 1}`),
+    body: clean([...item.querySelectorAll(":scope > p")].map((paragraph) => paragraph.textContent).join(" ") || item.textContent || ""),
+  })).filter((item) => item.title && item.body);
+  if (items.length) context.blocks.push({ key: context.key("cards"), type: "cards", columns: Math.min(3, items.length), items });
+}
+
+function addRoute(element, context) {
+  const items = [...element.querySelectorAll(":scope > li")].map((item, index) => ({ key: `${context.sourceKey}_route_${context.blocks.length + 1}_${index + 1}`, title: clean(item.querySelector("strong,b")?.textContent || `Paso ${index + 1}`), body: clean(item.textContent || "") })).filter((item) => item.body);
+  if (items.length) context.blocks.push({ key: context.key("route"), type: "steps", items });
+}
+
+function addRichNode(element, context) {
+  const node = richNode(element);
+  if (node) context.blocks.push({ key: context.key("text"), type: "rich_text", content: { type: "doc", content: [node] } });
+}
+
+function richNode(element) {
+  const tag = element.tagName;
+  const content = inlineContent(element);
+  if (!content.length) return null;
+  if (/^H[234]$/.test(tag)) return { type: "heading", attrs: { level: Number(tag[1]) }, content };
+  return { type: "paragraph", content };
+}
+
+function inlineContent(element, inheritedMarks = []) {
+  return [...element.childNodes].flatMap((node) => {
+    if (node.nodeType === 3) return cleanInline(node.textContent) ? [{ type: "text", text: cleanInline(node.textContent), ...(inheritedMarks.length ? { marks: inheritedMarks } : {}) }] : [];
+    if (node.nodeType !== 1) return [];
+    const child = node;
+    if (child.tagName === "BR") return [{ type: "hardBreak" }];
+    const marks = [...inheritedMarks];
+    if (child.matches("strong,b")) marks.push({ type: "bold" });
+    else if (child.matches("em,i")) marks.push({ type: "italic" });
+    else if (child.matches("code")) marks.push({ type: "code" });
+    else if (child.matches("a")) {
+      const href = child.getAttribute("href");
+      if (href?.startsWith("https://")) marks.push({ type: "link", attrs: { href } });
+    }
+    return inlineContent(child, marks);
+  });
+}
+
+function specialEditorialBlocks(folder, sourceKey, key) {
+  if (folder !== "05-instala-git") return [];
+  return [{
+    key: key("privacy"), type: "callout", eyebrow: "PRIVACIDAD", title: "Elegí qué correo mostrar en tus commits", tone: "info",
+    body: { type: "doc", content: [{ type: "paragraph", content: [
+      { type: "text", text: "El correo configurado en Git queda visible en los commits. Podés usar un correo verificado o el correo " },
+      { type: "text", text: "noreply", marks: [{ type: "code" }] },
+      { type: "text", text: " que GitHub muestra en Settings → Emails. Consultá la " },
+      { type: "text", text: "guía oficial", marks: [{ type: "link", attrs: { href: "https://docs.github.com/en/account-and-profile/how-tos/email-preferences/setting-your-commit-email-address" } }] },
+      { type: "text", text: " antes de elegir." },
+    ] }] },
+  }];
+}
+
+function curateTerminalSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "03-conoce-la-terminal");
+  if (!section) throw new Error("No se encontró la sección de terminal.");
+  const image = section.blocks.find((block) => block.type === "image");
+  const cards = section.blocks.filter((block) => block.type === "cards");
+  const concepts = cards[0];
+  const errors = cards[1];
+  if (!image || !concepts || !errors) throw new Error("La sección de terminal perdió sus recursos base.");
+
+  concepts.title = "Cómo leer una interacción";
+  errors.title = "Si algo no sale como esperabas";
+  section.summary = "Abrí la terminal integrada, aprendé a distinguir prompt, comando y respuesta, y practicá cómo recorrer carpetas sin perderte.";
+  section.blocks = [
+    {
+      key: "week01_conoce_la_terminal_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO", title: "Abrí la terminal y reconocé qué muestra",
+      body: richDocument("En Visual Studio Code elegí Terminal → New Terminal. Al terminar esta pantalla vas a poder ubicarte, crear una carpeta, entrar en ella y volver a la carpeta padre."),
+    },
+    image,
+    concepts,
+    {
+      key: "week01_conoce_la_terminal_transcript", type: "terminal", title: "Terminal · ejemplo guiado", rows: [
+        { key: "week01_terminal_prompt", kind: "prompt", label: "Prompt", value: "PS C:\\Curso>" },
+        { key: "week01_terminal_command", kind: "command", label: "Comando", value: "echo Hola" },
+        { key: "week01_terminal_response", kind: "response", label: "Respuesta", value: "Hola" },
+        { key: "week01_terminal_new_prompt", kind: "prompt", label: "Nuevo prompt", value: "PS C:\\Curso>" },
+      ],
+    },
+    {
+      key: "week01_conoce_la_terminal_commands", type: "command_reference", title: "Seis comandos esenciales", items: [
+        { key: "week01_command_pwd", command: "pwd", purpose: "Muestra en qué carpeta estás.", tryIt: "Confirmá tu ubicación antes de ejecutar otros comandos." },
+        { key: "week01_command_ls", command: "ls", purpose: "Lista archivos y carpetas del lugar actual.", tryIt: "Buscá una carpeta que reconozcas." },
+        { key: "week01_command_cd", command: "cd nombre", purpose: "Entra en la carpeta indicada.", tryIt: "Reemplazá nombre por una carpeta que aparezca en ls." },
+        { key: "week01_command_parent", command: "cd ..", purpose: "Sube un nivel hasta la carpeta padre.", tryIt: "Ejecutá pwd antes y después para comparar las rutas." },
+        { key: "week01_command_mkdir", command: "mkdir practica-terminal", purpose: "Crea una carpeta nueva.", tryIt: "Usá un nombre que todavía no exista en la ubicación actual." },
+        { key: "week01_command_clear", command: "clear", purpose: "Limpia la pantalla sin borrar archivos.", tryIt: "Ordená la vista cuando la salida anterior ya no te sirva." },
+      ],
+    },
+    {
+      key: "week01_conoce_la_terminal_practice", type: "code", title: "Práctica guiada · una línea por vez", language: "bash",
+      code: "pwd\nmkdir practica-terminal\ncd practica-terminal\npwd\ncd ..\npwd",
+    },
+    {
+      key: "week01_conoce_la_terminal_shells", type: "callout", tone: "success", eyebrow: "COMPARÁ LOS RESULTADOS", title: "La ruta cambia; el objetivo es el mismo",
+      body: { type: "doc", content: [
+        richParagraph("PowerShell y las terminales tipo Bash pueden mostrar las rutas con formatos diferentes. En ambos casos, pwd informa dónde estás y cd .. te lleva a la carpeta padre."),
+        richParagraph("Si la carpeta practica-terminal ya existe, elegí otro nombre. Para abrirla en VS Code podés ejecutar code .; si ese acceso directo no está disponible, usá Archivo → Abrir carpeta."),
+      ] },
+    },
+    errors,
+    {
+      key: "week01_conoce_la_terminal_diagnostic", type: "callout", tone: "warning", eyebrow: "REGLA ÚTIL", title: "Mensaje → ubicación → escritura",
+      body: richDocument("Leé qué ocurrió, ejecutá pwd y ls, y después corregí una sola cosa antes de volver a intentar."),
+    },
+    {
+      key: "week01_conoce_la_terminal_question", type: "question", activityKey: "week01_conoce_la_terminal_question", required: true, questionKind: "single",
+      prompt: "En `PS C:\\Curso> echo Hola`, ¿qué parte escribís vos?", options: [
+        { key: "prompt", label: "PS C:\\Curso>", code: true },
+        { key: "command", label: "echo Hola", code: true },
+        { key: "result", label: "Hola", code: true },
+      ], correctOptionKeys: ["command"],
+    },
+  ];
+}
+
+function richDocument(text) {
+  return { type: "doc", content: [richParagraph(text)] };
+}
+
+function richParagraph(text) {
+  return { type: "paragraph", content: [{ type: "text", text }] };
+}
+
+function curateOverviewSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "01-resumen");
+  if (!section) throw new Error("No se encontró la introducción de Semana 1.");
+
+  section.summary = "Conocé el recorrido de la semana y el programa modular que vas a construir con Node.js, Git y GitHub.";
+  section.blocks = [
+    {
+      key: "week01_resumen_guided_class", type: "callout", tone: "info", eyebrow: "CLASE GUIADA · 1 H 30 MIN", title: "Empezá la semana con un mapa claro",
+      body: { type: "doc", content: [
+        richParagraph("Durante este encuentro, el docente presentará y recorrerá los contenidos centrales de la Semana 1."),
+        richParagraph("Los 90 minutos corresponden solamente a esa lectura guiada: no incluyen el tiempo que cada estudiante necesite para instalar herramientas, practicar o preparar la entrega."),
+      ] },
+    },
+    {
+      key: "week01_resumen_deliverable", type: "code", title: "El programa que vas a construir", language: "text",
+      code: "programa-modular-node/\n├── app.js\n├── saludos.js\n├── historial.js\n└── README.md",
+    },
+    {
+      key: "week01_resumen_outcomes", type: "cards", title: "Al terminar la semana vas a poder", columns: 3, items: [
+        { key: "week01_resumen_outcome_tools", eyebrow: "01", title: "Preparar herramientas", body: "Usar VS Code y la terminal, e instalar Node.js y Git para trabajar desde tu computadora." },
+        { key: "week01_resumen_outcome_node", eyebrow: "02", title: "Comprender Node.js", body: "Relacionar back end, runtime, event loop y módulos con lo que ocurre al ejecutar JavaScript." },
+        { key: "week01_resumen_outcome_publish", eyebrow: "03", title: "Construir y publicar", body: "Organizar un programa en módulos, guardar una versión con Git y verificarla en GitHub." },
+      ],
+    },
+    {
+      key: "week01_resumen_journey", type: "steps", title: "Tu recorrido", items: [
+        { key: "week01_resumen_journey_environment", title: "Prepará el entorno", body: "Abrí la terminal, instalá Node.js y Git, y creá tu cuenta de GitHub." },
+        { key: "week01_resumen_journey_backend", title: "Ubicá el back end", body: "Reconocé qué problemas resuelve y qué responsabilidades tiene." },
+        { key: "week01_resumen_journey_node", title: "Entendé Node.js", body: "Relacioná JavaScript con el runtime y seguí una primera ejecución asíncrona." },
+        { key: "week01_resumen_journey_build", title: "Construí el programa", body: "Separá saludos e historial en módulos y conectalos desde app.js." },
+        { key: "week01_resumen_journey_version", title: "Versioná y verificá", body: "Guardá una versión con Git, publicala en GitHub y comprobá la evidencia." },
+      ],
+    },
+    {
+      key: "week01_resumen_preparation", type: "callout", tone: "neutral", eyebrow: "ANTES DE EMPEZAR", title: "Prepará un lugar de trabajo",
+      body: { type: "doc", content: [
+        richParagraph("Tené disponible Visual Studio Code y acceso a un correo verificable. Elegí también una carpeta de tu computadora para guardar el trabajo del curso."),
+        richParagraph("Durante las prácticas, ejecutá una instrucción por vez y observá su resultado antes de continuar."),
+      ] },
+    },
+  ];
+}
+
+function curateNodeInstallationSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "04-instala-nodejs");
+  if (!section) throw new Error("No se encontró la sección de instalación de Node.js.");
+  const images = section.blocks.filter((block) => block.type === "image");
+  const validators = section.blocks.filter((block) => block.type === "validator");
+  if (images.length !== 3 || validators.length !== 2) throw new Error("La sección de Node.js perdió imágenes o validadores requeridos.");
+
+  images[0].caption = "Captura orientativa. Buscá la opción identificada como LTS para Windows; el diseño del sitio y el número de versión pueden cambiar.";
+  images[1].caption = "Captura orientativa. Conservá Node.js runtime, npm y PATH entre los componentes seleccionados por el instalador.";
+  images[2].caption = "Resultado esperado: cada comando responde con una versión y luego reaparece el prompt. Los números exactos pueden ser diferentes.";
+
+  section.summary = "Instalá la versión LTS de Node.js en Windows, comprobá Node.js y npm, y resolvé de forma segura los errores más frecuentes.";
+  section.blocks = [
+    {
+      key: "week01_instala_nodejs_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO · WINDOWS", title: "Dejá Node.js y npm listos para usar",
+      body: { type: "doc", content: [
+        richParagraph("Esta guía usa el instalador oficial para Windows. Si trabajás con macOS o Linux, consultá al docente antes de continuar porque los pasos son diferentes."),
+        richParagraph("Guardá tus archivos y cerrá las terminales abiertas. Si Windows solicita credenciales de administrador, pedí ayuda al responsable del equipo."),
+      ] },
+    },
+    {
+      key: "week01_instala_nodejs_journey", type: "steps", title: "El recorrido", items: [
+        { key: "week01_node_journey_download", title: "Descargá la versión LTS", body: "Entrá al sitio oficial y elegí la opción LTS para Windows. No necesitás que el número coincida con las capturas." },
+        { key: "week01_node_journey_install", title: "Conservá la instalación predeterminada", body: "Aceptá la licencia y mantené seleccionados Node.js runtime, npm y la incorporación al PATH." },
+        { key: "week01_node_journey_restart", title: "Reabrí Visual Studio Code", body: "Cerrá todas sus ventanas, abrilo otra vez y creá una terminal nueva para actualizar el entorno." },
+        { key: "week01_node_journey_verify", title: "Verificá los dos comandos", body: "Ejecutá node --version y npm --version por separado y conservá las respuestas para registrarlas al final." },
+      ],
+    },
+    { key: "week01_instala_nodejs_download", type: "link", label: "Abrir la descarga oficial de Node.js", url: "https://nodejs.org/en/download", variant: "primary", newTab: true },
+    images[0],
+    {
+      key: "week01_instala_nodejs_components", type: "cards", title: "Qué debe quedar instalado", columns: 2, items: [
+        { key: "week01_node_component_runtime", eyebrow: "CONSERVÁ", title: "Node.js runtime", body: "Es el entorno que ejecutará tu código JavaScript fuera del navegador." },
+        { key: "week01_node_component_npm", eyebrow: "CONSERVÁ", title: "npm package manager", body: "Se instala junto con Node.js y permite incorporar y administrar paquetes del proyecto." },
+        { key: "week01_node_component_path", eyebrow: "CONSERVÁ", title: "Agregar al PATH", body: "Permite que una terminal encuentre los comandos node y npm desde cualquier carpeta." },
+        { key: "week01_node_component_tools", eyebrow: "OMITÍ POR AHORA", title: "Herramientas adicionales", body: "No son necesarias en esta primera semana. Si el instalador las ofrece como opcionales, podés dejarlas sin seleccionar." },
+      ],
+    },
+    images[1],
+    {
+      key: "week01_instala_nodejs_restart", type: "steps", title: "Actualizá el entorno antes de verificar", items: [
+        { key: "week01_node_restart_close", title: "Cerrá VS Code por completo", body: "Cerrá todas las ventanas, no solamente la terminal que estaba abierta." },
+        { key: "week01_node_restart_open", title: "Abrilo nuevamente", body: "Esperá a que Visual Studio Code termine de cargar." },
+        { key: "week01_node_restart_terminal", title: "Creá una terminal nueva", body: "Elegí Terminal → New Terminal. Esa terminal ya debería reconocer la instalación." },
+      ],
+    },
+    { key: "week01_instala_nodejs_verify", type: "code", title: "Ejecutá un comando por vez", language: "bash", code: "node --version\nnpm --version" },
+    images[2],
+    {
+      key: "week01_instala_nodejs_troubleshooting", type: "cards", title: "Si un comando no responde", columns: 1, items: [
+        { key: "week01_node_problem_node", eyebrow: "PROBLEMA", title: "node no se reconoce", body: "Primero: cerrá todas las ventanas de VS Code, volvé a abrirlo y creá una terminal nueva. Después: si continúa, ejecutá otra vez el instalador y comprobá Node.js runtime y PATH." },
+        { key: "week01_node_problem_npm", eyebrow: "PROBLEMA", title: "npm no se reconoce", body: "Primero: comprobá si node --version responde. Después: si Node.js funciona pero npm no, revisá con el instalador que npm package manager esté seleccionado." },
+        { key: "week01_node_problem_policy", eyebrow: "POWERSHELL", title: "npm.ps1 no puede ejecutarse", body: "La política de PowerShell puede estar bloqueando scripts. No cambies la seguridad del equipo por tu cuenta: copiá el mensaje completo y consultalo con el docente o responsable." },
+      ],
+    },
+    ...validators,
+  ];
+}
+
+function curateGitInstallationSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "05-instala-git");
+  if (!section) throw new Error("No se encontró la sección de instalación de Git.");
+  const images = section.blocks.filter((block) => block.type === "image");
+  const validator = section.blocks.find((block) => block.type === "validator");
+  const generator = section.blocks.find((block) => block.type === "generator");
+  if (images.length !== 3 || !validator || !generator) throw new Error("La sección de Git perdió imágenes, validador o generador.");
+
+  images[0].caption = "Captura orientativa. Descargá Git para Windows desde el sitio oficial y elegí x64 o ARM64 según la arquitectura del equipo.";
+  images[1].caption = "Captura orientativa. Los nombres y el orden de las pantallas pueden cambiar; para esta cursada alcanza con conservar las opciones recomendadas.";
+  images[2].caption = "La terminal puede volver al prompt sin mostrar un mensaje cuando guarda la configuración. Consultá los valores después para confirmarlos.";
+  generator.description = "Los datos se usan solamente para formar estos comandos en tu navegador; no se envían. Ejecutá cada línea en tu terminal.";
+  generator.variables[0].placeholder = "Ana Pérez";
+  generator.variables[1].placeholder = "ana@ejemplo.com";
+
+  section.summary = "Instalá Git en Windows, verificá la herramienta y configurá la identidad que quedará asociada a tus futuros commits.";
+  section.blocks = [
+    {
+      key: "week01_instala_git_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO · WINDOWS", title: "Instalá Git y dejá lista tu autoría local",
+      body: { type: "doc", content: [
+        richParagraph("Git registra cambios y versiones en tu computadora. GitHub alojará el repositorio en Internet más adelante: instalar o configurar Git no publica ningún archivo."),
+        richParagraph("Esta guía usa Git para Windows. Si trabajás con macOS o Linux, consultá al docente porque la instalación es diferente."),
+      ] },
+    },
+    {
+      key: "week01_instala_git_journey", type: "steps", title: "El recorrido", items: [
+        { key: "week01_git_journey_download", title: "Descargá Git para Windows", body: "Usá el sitio oficial. x64 corresponde a la mayoría de equipos Intel o AMD; ARM64 es para Windows basado en ARM. Si no estás seguro, consultá antes de instalar." },
+        { key: "week01_git_journey_install", title: "Conservá las opciones recomendadas", body: "No necesitás personalizar el editor, OpenSSH, Credential Manager ni las opciones avanzadas para esta semana." },
+        { key: "week01_git_journey_restart", title: "Reabrí Visual Studio Code", body: "Cerrá todas sus ventanas, abrilo otra vez y creá una terminal nueva para actualizar el PATH." },
+        { key: "week01_git_journey_verify", title: "Verificá la instalación", body: "Ejecutá git --version. Una respuesta que empieza con git version confirma que Git está disponible." },
+        { key: "week01_git_journey_identity", title: "Elegí y configurá tu identidad", body: "Decidí qué nombre y correo asociarás a futuros commits, generá los comandos y consultá los valores guardados." },
+      ],
+    },
+    { key: "week01_instala_git_download", type: "link", label: "Abrir la descarga oficial de Git para Windows", url: "https://git-scm.com/install/windows", variant: "primary", newTab: true },
+    images[0],
+    {
+      key: "week01_instala_git_components", type: "cards", title: "Qué conviene conservar", columns: 2, items: [
+        { key: "week01_git_component_terminal", eyebrow: "RECOMENDADO", title: "Git desde la terminal", body: "Debe quedar disponible en el PATH para usar el comando git desde Visual Studio Code." },
+        { key: "week01_git_component_ssh", eyebrow: "PREDETERMINADO", title: "OpenSSH incluido", body: "Conservá la selección del instalador. No usaremos claves SSH durante esta introducción." },
+        { key: "week01_git_component_credentials", eyebrow: "PREDETERMINADO", title: "Git Credential Manager", body: "Mantené la opción recomendada; ayudará con la autenticación cuando conectes servicios remotos." },
+        { key: "week01_git_component_defaults", eyebrow: "IDEA CLAVE", title: "No memorices cada pantalla", body: "Las opciones predeterminadas son suficientes para la cursada. No cambies ajustes avanzados si no conocés su efecto." },
+      ],
+    },
+    images[1],
+    { key: "week01_instala_git_verify", type: "code", title: "Verificá Git en una terminal nueva", language: "bash", code: "git --version" },
+    {
+      key: "week01_instala_git_privacy_decision", type: "callout", tone: "warning", eyebrow: "ANTES DE CONFIGURAR EL CORREO", title: "Elegí qué identidad asociar a tus commits",
+      body: { type: "doc", content: [
+        richParagraph("Git incorpora el nombre y el correo a cada commit futuro. Cuando publiques un repositorio, ese correo puede ser visible. Cambiarlo después no reescribe los commits anteriores."),
+        { type: "paragraph", content: [
+          { type: "text", text: "Podés usar un correo que verificarás en GitHub o el correo " },
+          { type: "text", text: "noreply", marks: [{ type: "code" }] },
+          { type: "text", text: " que GitHub proporciona en Settings → Emails. Si todavía no tenés cuenta, podés volver a este generador después de crearla. Consultá la " },
+          { type: "text", text: "guía oficial sobre el correo de los commits", marks: [{ type: "link", attrs: { href: "https://docs.github.com/en/account-and-profile/how-tos/email-preferences/setting-your-commit-email-address" } }] },
+          { type: "text", text: " antes de elegir." },
+        ] },
+      ] },
+    },
+    generator,
+    images[2],
+    { key: "week01_instala_git_query", type: "code", title: "Consultá los valores guardados", language: "bash", code: "git config --global user.name\ngit config --global user.email\ngit config --global init.defaultBranch" },
+    {
+      key: "week01_instala_git_scope", type: "callout", tone: "neutral", eyebrow: "QUÉ ACABÁS DE CONFIGURAR", title: "Tu usuario local y los repositorios futuros",
+      body: { type: "doc", content: [
+        richParagraph("La opción --global guarda estos valores para tu usuario de Windows en esta computadora y los usa por defecto en sus repositorios. No crea una cuenta ni envía los datos a Internet."),
+        richParagraph("init.defaultBranch main indica que los repositorios que crees desde ahora comenzarán en la rama main. No cambia el nombre de ramas que ya existen."),
+      ] },
+    },
+    {
+      key: "week01_instala_git_troubleshooting", type: "cards", title: "Si algo no funciona", columns: 1, items: [
+        { key: "week01_git_problem_command", eyebrow: "PROBLEMA", title: "git no se reconoce", body: "Primero: cerrá todas las ventanas de VS Code, volvé a abrirlo y creá una terminal nueva. Después: si continúa, ejecutá otra vez el instalador y conservá Git en el PATH." },
+        { key: "week01_git_problem_access", eyebrow: "PERMISOS", title: "Access denied", body: "Primero: guardá el mensaje completo. Después: pedí asistencia al responsable del equipo; no cambies permisos de Windows por tu cuenta." },
+        { key: "week01_git_problem_identity", eyebrow: "CONFIGURACIÓN", title: "El nombre o correo es incorrecto", body: "Primero: volvé a ejecutar el comando con el valor correcto. Después: consultalo otra vez para confirmar. El cambio se aplica a commits futuros y no reescribe los anteriores." },
+      ],
+    },
+    validator,
+  ];
+}
+
+function curateGitHubAccountSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "06-crea-cuenta-github");
+  if (!section) throw new Error("No se encontró la sección de creación de cuenta de GitHub.");
+  const images = section.blocks.filter((block) => block.type === "image");
+  const validator = section.blocks.find((block) => block.type === "validator");
+  if (images.length !== 3 || !validator) throw new Error("La sección de GitHub perdió imágenes o su validador requerido.");
+
+  images[0].caption = "Captura orientativa. El formulario puede cambiar: comprobá que estás creando una cuenta personal y no copies los datos ficticios de la imagen.";
+  images[1].caption = "Captura orientativa. GitHub puede usar un enlace o un código según el flujo; usá solamente el que llegue a tu propio correo.";
+  images[2].caption = "Resultado esperado: podés abrir tu perfil público y el correo figura como verificado. La foto, biografía, ubicación y redes son opcionales para la cursada.";
+  validator.helpText = "Escribí sólo la parte que aparece después de github.com/. No ingreses el correo, la contraseña ni la URL completa.";
+  validator.presentation = "github_profile";
+
+  section.summary = "Creá una cuenta personal de GitHub, verificá tu perfil, protegé el acceso y relacioná de forma consciente el correo de tus commits.";
+  section.blocks = [
+    {
+      key: "week01_crea_cuenta_github_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO", title: "Dejá lista una identidad pública para la cursada",
+      body: { type: "doc", content: [
+        richParagraph("GitHub alojará copias remotas de tus repositorios y permitirá compartir enlaces. Git seguirá registrando las versiones en tu computadora: crear la cuenta todavía no publica ningún archivo."),
+        richParagraph("La cursada sólo necesita tu nombre de usuario público. No ingreses ni compartas aquí contraseñas, códigos de verificación o códigos de recuperación."),
+      ] },
+    },
+    {
+      key: "week01_crea_cuenta_github_journey", type: "steps", title: "El recorrido", items: [
+        { key: "week01_github_journey_signup", title: "Creá una cuenta personal", body: "Elegí el registro directo o, si GitHub lo ofrece, continuá con Google o Apple. Para esta cursada alcanza con GitHub Free." },
+        { key: "week01_github_journey_verify", title: "Verificá el correo", body: "Usá el mensaje enviado por GitHub. Sin un correo verificado no podrás realizar tareas básicas como crear un repositorio." },
+        { key: "week01_github_journey_profile", title: "Comprobá el perfil público", body: "Abrí github.com/TU-USUARIO y confirmá que el enlace corresponde a tu cuenta." },
+        { key: "week01_github_journey_security", title: "Protegé y prepará la recuperación", body: "Configurá 2FA cuando GitHub lo solicite o te lo ofrezca, y guardá métodos y códigos de recuperación en un lugar privado." },
+        { key: "week01_github_journey_email", title: "Relacioná el correo con Git", body: "Elegí un correo verificado o el noreply de GitHub para atribuir tus futuros commits sin exponer más datos de los necesarios." },
+      ],
+    },
+    { key: "week01_crea_cuenta_github_signup", type: "link", label: "Abrir el registro oficial de GitHub", url: "https://github.com/signup", variant: "primary", newTab: true },
+    {
+      key: "week01_crea_cuenta_github_decisions", type: "cards", title: "Decisiones antes de registrarte", columns: 2, items: [
+        { key: "week01_github_decision_account", eyebrow: "CUENTA", title: "Personal y gratuita", body: "Creá una cuenta propia de GitHub Free. No necesitás contratar GitHub Pro ni ingresar un medio de pago para completar la semana." },
+        { key: "week01_github_decision_email", eyebrow: "RECUPERACIÓN", title: "Un correo al que puedas volver", body: "Usá una dirección estable que puedas abrir y recuperar. GitHub no admite correos temporales para la verificación." },
+        { key: "week01_github_decision_username", eyebrow: "PÚBLICO", title: "Un usuario reconocible", body: "Formará parte de tus enlaces. Evitá documento, teléfono, fecha de nacimiento u otros datos personales innecesarios; si ya está ocupado, probá una variante." },
+        { key: "week01_github_decision_password", eyebrow: "PRIVADO", title: "Un acceso único", body: "Si usás contraseña, elegí una larga y diferente de la del campus o correo, idealmente guardada en un administrador. Si usás inicio social, protegé también esa cuenta." },
+      ],
+    },
+    images[0],
+    {
+      key: "week01_crea_cuenta_github_verification", type: "steps", title: "Verificá tu correo sin compartir el código", items: [
+        { key: "week01_github_verify_open", title: "Abrí el mensaje que solicitaste", body: "Buscá el correo de GitHub y comprobá el remitente. Si no iniciaste el proceso, no uses el enlace ni el código." },
+        { key: "week01_github_verify_use", title: "Usá tu enlace o código", body: "El mecanismo puede variar. No copies el valor de una captura y no lo envíes a docentes o compañeros." },
+        { key: "week01_github_verify_confirm", title: "Volvé a la cuenta correcta", body: "Confirmá que GitHub muestra la verificación en la misma cuenta y el mismo navegador donde comenzaste." },
+      ],
+    },
+    images[1],
+    {
+      key: "week01_crea_cuenta_github_recovery", type: "callout", tone: "warning", eyebrow: "SI EL MENSAJE NO LLEGA", title: "Revisá antes de volver a intentar",
+      body: { type: "doc", content: [
+        richParagraph("Esperá unos minutos, revisá spam y confirmá que la dirección esté bien escrita. En GitHub podés ir a Settings → Emails y elegir Resend verification email."),
+        { type: "paragraph", content: [
+          { type: "text", text: "Los enlaces de verificación vencen: si pasaron 24 horas, solicitá uno nuevo. Si aparece un error, iniciá sesión en la cuenta correcta y abrí el nuevo mensaje. Consultá la " },
+          { type: "text", text: "guía oficial de verificación", marks: [{ type: "link", attrs: { href: "https://docs.github.com/en/account-and-profile/how-tos/email-preferences/verifying-your-email-address" } }] },
+          { type: "text", text: " y su " },
+          { type: "text", text: "solución de problemas", marks: [{ type: "link", attrs: { href: "https://docs.github.com/en/account-and-profile/how-tos/email-preferences/troubleshooting-email-verification" } }] },
+          { type: "text", text: "." },
+        ] },
+      ] },
+    },
+    images[2],
+    {
+      key: "week01_crea_cuenta_github_security", type: "cards", title: "Protegé el acceso y la recuperación", columns: 1, items: [
+        { key: "week01_github_security_2fa", eyebrow: "2FA", title: "Agregá una segunda comprobación", body: "GitHub la recomienda y puede exigirla a quienes contribuyen código. Podés configurar una app de autenticación, un método alternativo o una passkey según las opciones disponibles." },
+        { key: "week01_github_security_recovery", eyebrow: "RECUPERACIÓN", title: "Guardá los códigos fuera del repositorio", body: "Conservalos en un administrador de contraseñas u otro lugar privado. GitHub Support no puede restaurar el acceso si perdés todos los métodos de recuperación." },
+        { key: "week01_github_security_secrets", eyebrow: "NUNCA EN UNA ENTREGA", title: "Contraseñas y códigos son secretos", body: "No los pegues en el campus, el repositorio, una captura ni un mensaje. Docentes y compañeros no los necesitan para ayudarte." },
+      ],
+    },
+    {
+      key: "week01_crea_cuenta_github_privacy", type: "callout", tone: "neutral", eyebrow: "PRIVACIDAD Y AUTORÍA", title: "Elegí qué correo usarán tus commits",
+      body: { type: "doc", content: [
+        richParagraph("GitHub asocia un commit con tu cuenta cuando su correo coincide con una dirección agregada y verificada, o con el correo noreply que GitHub te proporciona en Settings → Emails."),
+        { type: "paragraph", content: [
+          { type: "text", text: "El correo configurado en Git queda incorporado a los commits futuros y puede ser visible al publicarlos. Revisá la " },
+          { type: "text", text: "configuración oficial del correo de commits", marks: [{ type: "link", attrs: { href: "https://docs.github.com/en/account-and-profile/how-tos/email-preferences/setting-your-commit-email-address" } }] },
+          { type: "text", text: " antes de decidir entre tu dirección verificada y noreply." },
+        ] },
+      ] },
+    },
+    {
+      key: "week01_crea_cuenta_github_relationship", type: "cards", title: "Tres identidades que conviene distinguir", columns: 3, items: [
+        { key: "week01_github_identity_profile", eyebrow: "GITHUB", title: "Nombre de usuario", body: "Identifica tu cuenta pública y aparece en URLs como github.com/ana-dev. No es el nombre real configurado en Git." },
+        { key: "week01_github_identity_git", eyebrow: "GIT LOCAL", title: "Nombre de autor", body: "Se guarda con user.name y aparecerá como autor de tus commits. Puede contener espacios y no sirve para iniciar sesión." },
+        { key: "week01_github_identity_email", eyebrow: "PUENTE", title: "Correo del commit", body: "GitHub lo usa para atribuir commits a tu cuenta cuando coincide con un correo verificado o con tu noreply." },
+      ],
+    },
+    { key: "week01_crea_cuenta_github_git_email", type: "code", title: "Comprobá el correo configurado en Git", language: "bash", code: "git config --global user.email" },
+    validator,
+  ];
+}
+
+function curateBackendRoleSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "08-que-hace-backend");
+  if (!section) throw new Error("No se encontró la sección sobre el papel del back end.");
+  const images = section.blocks.filter((block) => block.type === "image");
+  const question = section.blocks.find((block) => block.type === "question");
+  if (images.length !== 3 || !question) throw new Error("La sección de back end perdió imágenes o su pregunta requerida.");
+
+  images[0].caption = "Mapa conceptual. El front end y el back end intercambian solicitudes y respuestas HTTP. El back end consulta la base de datos y los servicios externos mediante las operaciones y protocolos que correspondan; una aplicación puede no necesitar todos estos componentes.";
+  images[1].caption = "La imagen muestra el camino exitoso. Si falla la validación, el permiso o la disponibilidad, el back end detiene el recorrido, no registra la reserva y responde el motivo.";
+  images[2].caption = "La interfaz presenta el resultado recibido. El servidor puede registrar eventos técnicos, pero sólo persiste el cambio de negocio cuando la operación es válida.";
+
+  section.title = "¿Qué hace el back end?";
+  section.summary = "Seguí una solicitud desde la interfaz hasta el servidor y distinguí validación, reglas de negocio, persistencia y respuesta.";
+  section.blocks = [
+    {
+      key: "week01_que_hace_backend_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO", title: "Seguí una decisión que la interfaz no puede tomar sola",
+      body: { type: "doc", content: [
+        richParagraph("El back end recibe solicitudes, valida datos e identidad, comprueba permisos, aplica reglas de negocio, coordina datos o servicios y devuelve una respuesta."),
+        richParagraph("No toda solicitud termina en un cambio: cuando una condición falla, responder con un error claro sin persistir datos también es un resultado correcto."),
+      ] },
+    },
+    images[0],
+    {
+      key: "week01_que_hace_backend_roles", type: "cards", title: "Qué responsabilidad tiene cada parte", columns: 2, items: [
+        { key: "week01_backend_role_frontend", eyebrow: "CLIENTE", title: "Front end", body: "Presenta información, recibe acciones y puede anticipar errores para mejorar la experiencia. Forma la solicitud y muestra la respuesta, pero sus datos se pueden alterar." },
+        { key: "week01_backend_role_backend", eyebrow: "SERVIDOR", title: "Back end", body: "Recibe la solicitud, valida identidad, permisos y datos, aplica reglas, coordina operaciones y decide qué respuesta devolver." },
+        { key: "week01_backend_role_database", eyebrow: "PERSISTENCIA", title: "Base de datos", body: "Conserva y recupera información organizada. El back end le envía consultas o comandos y recibe resultados; no es la interfaz de la persona." },
+        { key: "week01_backend_role_external", eyebrow: "OPCIONAL", title: "Servicios externos", body: "Aportan capacidades como pagos, correo o mapas. El back end los integra cuando la aplicación los necesita y maneja también sus posibles fallos." },
+      ],
+    },
+    {
+      key: "week01_que_hace_backend_trust", type: "callout", tone: "warning", eyebrow: "FRONTERA DE CONFIANZA", title: "Validar en la interfaz ayuda; validar en el servidor protege",
+      body: { type: "doc", content: [
+        richParagraph("El front end puede avisar que falta un campo antes de enviar. Esa comprobación mejora la experiencia, pero una persona o programa puede modificar la solicitud y evitar el código de la interfaz. Por eso el servidor trata cada solicitud como entrada no confiable."),
+        { type: "paragraph", content: [
+          { type: "text", text: "Por eso el back end vuelve a validar formato, identidad, permisos y reglas antes de procesar o persistir. Esta separación coincide con la " },
+          { type: "text", text: "recomendación de validación del lado servidor de OWASP", marks: [{ type: "link", attrs: { href: "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html" } }] },
+          { type: "text", text: "." },
+        ] },
+      ] },
+    },
+    images[1],
+    {
+      key: "week01_que_hace_backend_journey", type: "steps", title: "Reservar un libro, de punta a punta", items: [
+        { key: "week01_backend_journey_action", title: "La persona inicia la acción", body: "Presiona Reservar. El botón todavía no cambia ningún dato de la biblioteca." },
+        { key: "week01_backend_journey_request", title: "El front end envía la solicitud", body: "Construye una solicitud POST /reservas con el identificador del libro y la información necesaria de la sesión." },
+        { key: "week01_backend_journey_validate", title: "El back end valida", body: "Comprueba el formato, identifica al usuario y verifica que tenga permiso para reservar." },
+        { key: "week01_backend_journey_query", title: "Consulta el estado actual", body: "Obtiene la disponibilidad desde la fuente confiable. No se limita a creer lo que mostraba la pantalla unos segundos antes." },
+        { key: "week01_backend_journey_decide", title: "Aplica la regla y, si corresponde, registra", body: "Si todas las condiciones se cumplen, crea la reserva. Si alguna falla, no persiste el cambio." },
+        { key: "week01_backend_journey_response", title: "Devuelve una respuesta", body: "Informa éxito o error mediante un estado y un cuerpo. El front end transforma esa respuesta en un mensaje visible." },
+      ],
+    },
+    {
+      key: "week01_que_hace_backend_exchange", type: "terminal", title: "Intercambio HTTP · camino exitoso", rows: [
+        { key: "week01_backend_exchange_route", kind: "command", label: "Método y ruta", value: "POST /reservas" },
+        { key: "week01_backend_exchange_body", kind: "prompt", label: "Cuerpo", value: '{ "libroId": 42 }' },
+        { key: "week01_backend_exchange_decision", kind: "response", label: "Decisión", value: "Usuario autorizado + libro disponible" },
+        { key: "week01_backend_exchange_status", kind: "response", label: "Estado", value: "201 Created" },
+        { key: "week01_backend_exchange_response", kind: "response", label: "Respuesta", value: '{ "ok": true, "reservaId": 731 }' },
+      ],
+    },
+    {
+      key: "week01_que_hace_backend_outcomes", type: "cards", title: "Una solicitud siempre necesita una respuesta", columns: 3, items: [
+        { key: "week01_backend_outcome_created", eyebrow: "ÉXITO · 201", title: "Reserva creada", body: "Los datos, permisos y disponibilidad son válidos. El back end persiste la reserva y devuelve un identificador para reconocerla." },
+        { key: "week01_backend_outcome_invalid", eyebrow: "RECHAZO · 400/403", title: "Datos o permiso inválidos", body: "El servidor no registra la reserva y explica el problema sin revelar información sensible. El código exacto depende de la causa y del diseño de la API." },
+        { key: "week01_backend_outcome_conflict", eyebrow: "POSIBLE · 409", title: "El libro ya no está disponible", body: "Aunque la solicitud tenga buen formato, entra en conflicto con el estado actual. No se persiste el cambio y la interfaz puede invitar a elegir otro libro." },
+      ],
+    },
+    images[2],
+    {
+      key: "week01_que_hace_backend_glossary", type: "glossary", title: "Cuatro palabras para seguir usando", items: [
+        { key: "week01_backend_term_request", term: "Solicitud", definition: "Mensaje que un cliente envía al servidor para pedir información o intentar una operación." },
+        { key: "week01_backend_term_response", term: "Respuesta", definition: "Mensaje con el que el servidor informa el resultado, incluido un estado y, cuando corresponde, datos o un error." },
+        { key: "week01_backend_term_rule", term: "Regla de negocio", definition: "Condición propia del problema que determina qué operaciones son válidas; por ejemplo, sólo reservar un ejemplar disponible." },
+        { key: "week01_backend_term_persistence", term: "Persistencia", definition: "Conservación de un cambio para que siga existiendo después de terminar la solicitud, normalmente en una base de datos." },
+      ],
+    },
+    question,
+  ];
+}
+
+function curateNodeRuntimeSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "09-runtime-nodejs");
+  if (!section) throw new Error("No se encontró la sección sobre el runtime de Node.js.");
+  const images = section.blocks.filter((block) => block.type === "image");
+  const question = section.blocks.find((block) => block.type === "question");
+  if (images.length !== 3 || !question) throw new Error("La sección de runtime perdió imágenes o su pregunta requerida.");
+
+  images[0].caption = "Este fragmento usa sintaxis y una API disponibles en ambos entornos. Que el resultado coincida no significa que todo código del navegador pueda ejecutarse con Node.js.";
+  images[1].caption = "Recorrido simplificado: la terminal inicia Node.js, Node carga app.js y V8 ejecuta su JavaScript. Las API de Node.js y su capa nativa conectan el programa con capacidades del sistema.";
+  images[2].caption = "La ruta es sólo un ejemplo de Windows. process.cwd() muestra la carpeta desde la que se lanzó el proceso; puede ser distinta de la carpeta donde está guardado app.js.";
+
+  section.title = "JavaScript salió del navegador";
+  section.summary = "Ejecutá JavaScript con Node.js y distinguí el lenguaje, las API del entorno, el proceso y sus argumentos.";
+  section.blocks = [
+    {
+      key: "week01_runtime_nodejs_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO", title: "Entendé qué ocurre cuando escribís node app.js",
+      body: { type: "doc", content: [
+        richParagraph("Node.js es un entorno de ejecución de JavaScript: permite iniciar un proceso y ejecutar un programa sin depender de una página web. No es otro lenguaje, ni un framework, ni un servidor; puede usarse para crear servidores, scripts, herramientas de terminal y muchas otras aplicaciones."),
+        richParagraph("El lenguaje conserva variables, funciones, objetos y promesas. Lo que cambia es el entorno anfitrión: cada uno ofrece API y un ciclo de vida propios."),
+      ] },
+    },
+    {
+      key: "week01_runtime_nodejs_shared_code", type: "code", title: "Un fragmento que funciona en ambos entornos", language: "javascript",
+      code: 'const nombre = "Martina";\nconsole.log(`Hola, ${nombre}`);',
+    },
+    images[0],
+    {
+      key: "week01_runtime_nodejs_environments", type: "cards", title: "Qué se conserva y qué cambia", columns: 3, items: [
+        { key: "week01_runtime_environment_language", eyebrow: "COMPARTIDO", title: "El lenguaje", body: "Variables, funciones, arrays, objetos, promesas y gran parte de la sintaxis pertenecen a JavaScript. console.log también está disponible en los dos ejemplos, aunque la salida aparece en lugares diferentes." },
+        { key: "week01_runtime_environment_browser", eyebrow: "NAVEGADOR", title: "La página y el DOM", body: "El navegador aporta window, document y el DOM para leer o modificar una interfaz. También controla el ciclo de vida de la pestaña y sus permisos." },
+        { key: "week01_runtime_environment_node", eyebrow: "NODE.JS", title: "El proceso y el sistema", body: "Node.js aporta process, módulos y API para trabajar con archivos, red, terminal y otras capacidades del sistema, sujetas a los permisos de la computadora." },
+      ],
+    },
+    images[1],
+    {
+      key: "week01_runtime_nodejs_journey", type: "steps", title: "El recorrido de node app.js", items: [
+        { key: "week01_runtime_journey_command", title: "La terminal recibe el comando", body: "Cuando confirmás node app.js, el shell le pide al sistema operativo que inicie el ejecutable de Node.js con app.js como archivo de entrada." },
+        { key: "week01_runtime_journey_process", title: "Comienza un proceso", body: "El nuevo proceso tiene memoria, un directorio de trabajo, argumentos y acceso al entorno permitido por el sistema." },
+        { key: "week01_runtime_journey_load", title: "Node.js carga el archivo", body: "Busca app.js desde el directorio indicado por el comando, lee su contenido y lo prepara para ejecutarlo." },
+        { key: "week01_runtime_journey_execute", title: "V8 ejecuta JavaScript", body: "El motor interpreta o compila el código y produce efectos observables, como enviar texto a la salida de la terminal." },
+        { key: "week01_runtime_journey_finish", title: "El proceso termina", body: "Cuando el programa finaliza y no queda trabajo pendiente, el proceso devuelve el control a la terminal y aparece un nuevo prompt." },
+      ],
+    },
+    {
+      key: "week01_runtime_nodejs_pieces", type: "cards", title: "Tres piezas, tres responsabilidades", columns: 3, items: [
+        { key: "week01_runtime_piece_v8", eyebrow: "MOTOR", title: "V8", body: "Ejecuta el código JavaScript. Es el mismo motor que usa Chromium, integrado por Node.js fuera del navegador." },
+        { key: "week01_runtime_piece_apis", eyebrow: "ENTORNO", title: "API de Node.js", body: "Exponen capacidades como process, archivos, red y temporizadores, y conectan el programa con implementaciones nativas cuando hace falta." },
+        { key: "week01_runtime_piece_libuv", eyebrow: "E/S", title: "libuv", body: "Ayuda a implementar el bucle de eventos y parte de la entrada y salida asíncrona. No reemplaza a V8 ni explica por sí sola toda operación asíncrona." },
+      ],
+    },
+    {
+      key: "week01_runtime_nodejs_lab", type: "code", title: "Creá app.js", language: "javascript",
+      code: 'console.log("Node.js está funcionando");\nconsole.log("Versión:", process.version);\nconsole.log("Carpeta actual:", process.cwd());\n\nconst nombre = process.argv[2] ?? "estudiante";\nconsole.log(`Hola, ${nombre}`);',
+    },
+    {
+      key: "week01_runtime_nodejs_run", type: "code", title: "Ejecutalo desde la carpeta del archivo", language: "bash", code: "node app.js Martina",
+    },
+    images[2],
+    {
+      key: "week01_runtime_nodejs_process", type: "cards", title: "Cómo leer process", columns: 3, items: [
+        { key: "week01_runtime_process_version", eyebrow: "VERSIÓN", title: "process.version", body: "Indica la versión de Node.js que está ejecutando este proceso. El valor empieza con v y puede ser distinto del mostrado en la captura." },
+        { key: "week01_runtime_process_cwd", eyebrow: "UBICACIÓN", title: "process.cwd()", body: "Devuelve el directorio de trabajo actual: la carpeta desde la que iniciaste el proceso. No necesariamente coincide con la carpeta donde se encuentra el archivo." },
+        { key: "week01_runtime_process_argv", eyebrow: "ARGUMENTOS", title: "process.argv", body: "La posición 0 identifica el ejecutable de Node.js, la posición 1 el archivo de entrada y la posición 2 el primer argumento adicional. Por eso process.argv[2] recibe Martina." },
+      ],
+    },
+    {
+      key: "week01_runtime_nodejs_environment_error", type: "terminal", title: "Cuando el código espera otro entorno", rows: [
+        { key: "week01_runtime_error_command", kind: "command", label: "Comando", value: "node navegador.js" },
+        { key: "week01_runtime_error_response", kind: "response", label: "Respuesta", value: "ReferenceError: document is not defined" },
+        { key: "week01_runtime_error_cause", kind: "prompt", label: "Qué significa", value: "document pertenece al DOM que aporta el navegador; Node.js no lo define de forma predeterminada." },
+        { key: "week01_runtime_error_action", kind: "prompt", label: "Qué revisar", value: "Ejecutá el código en el navegador si necesita una página, o reemplazá esa dependencia por una API disponible en Node.js." },
+      ],
+    },
+    question,
+  ];
+}
+
+function curateEventLoopSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "10-event-loop");
+  if (!section) throw new Error("No se encontró la sección sobre event loop.");
+  const images = section.blocks.filter((block) => block.type === "image");
+  const question = section.blocks.find((block) => block.type === "question");
+  if (images.length !== 3 || !question) throw new Error("La sección de event loop perdió imágenes o su pregunta requerida.");
+
+  images[0].caption = "La cafetería representa concurrencia: el cajero puede seguir atendiendo mientras otro recurso prepara un pedido. Cuando el pedido queda listo, el cajero atiende el resultado en un turno posterior; no continúa personalmente la preparación.";
+  images[1].caption = "Modelo didáctico. La pila ejecuta JavaScript; el entorno coordina la espera y una callback lista aguarda su turno. Node.js organiza callbacks en colas asociadas a distintas fases, aunque la imagen las reúna en una sola caja.";
+  images[2].caption = "La salida A, C, B es estable en este ejemplo: el script sincrónico termina antes de que la callback del temporizador pueda ejecutarse. El valor 0 no convierte a B en una interrupción inmediata.";
+
+  section.title = "Una fila, muchas tareas en movimiento";
+  section.summary = "Predecí cuándo se ejecuta una callback y distinguí JavaScript secuencial, operaciones concurrentes y código bloqueante.";
+  section.blocks = [
+    {
+      key: "week01_event_loop_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO", title: "Explicá por qué esperar no obliga a detener todo",
+      body: { type: "doc", content: [
+        richParagraph("Por defecto, una sola callback JavaScript se ejecuta a la vez en el hilo del event loop. Sin embargo, Node.js puede mantener operaciones en curso mediante el sistema operativo o recursos internos y ejecutar sus callbacks cuando el resultado esté listo."),
+        richParagraph("Eso es concurrencia, no dos fragmentos de JavaScript ejecutándose en paralelo: mientras una operación espera, el proceso puede avanzar con otra tarea que ya está disponible."),
+      ] },
+    },
+    images[0],
+    {
+      key: "week01_event_loop_analogy", type: "cards", title: "Qué representa la cafetería —y dónde termina la analogía", columns: 2, items: [
+        { key: "week01_event_loop_analogy_cashier", eyebrow: "CAJERO", title: "JavaScript atiende un turno", body: "Representa la callback que ocupa la ejecución actual. Mientras atiende, ninguna otra callback JavaScript puede usar ese mismo hilo." },
+        { key: "week01_event_loop_analogy_kitchen", eyebrow: "COCINA", title: "Otro recurso realiza la espera", body: "Según la operación, el sistema operativo o recursos internos de Node.js pueden continuar el trabajo sin mantener ocupada la ejecución JavaScript." },
+        { key: "week01_event_loop_analogy_ready", eyebrow: "PEDIDO LISTO", title: "La callback queda preparada", body: "Que el resultado esté disponible no ejecuta la callback de inmediato: primero debe llegar el turno de la fase correspondiente." },
+        { key: "week01_event_loop_analogy_limit", eyebrow: "LÍMITE", title: "El event loop no prepara pedidos", body: "Coordina oportunidades para ejecutar callbacks. No realiza por sí mismo la lectura, el temporizador ni el trabajo de la cocina." },
+      ],
+    },
+    images[1],
+    {
+      key: "week01_event_loop_model", type: "cards", title: "Cuatro piezas para razonar sobre el orden", columns: 2, items: [
+        { key: "week01_event_loop_model_stack", eyebrow: "EJECUCIÓN", title: "Pila de llamadas", body: "Contiene las funciones JavaScript activas. La función actual debe terminar antes de que otra callback pueda comenzar en ese hilo." },
+        { key: "week01_event_loop_model_resources", eyebrow: "ESPERA", title: "Recursos asíncronos", body: "Node.js registra temporizadores o coordina E/S con el sistema operativo y, para algunas tareas, con su pool de trabajo. El mecanismo depende de la API." },
+        { key: "week01_event_loop_model_queues", eyebrow: "LISTO", title: "Colas asociadas a fases", body: "Cuando corresponde, una callback lista espera en la fase que le pertenece. Hablar de una única cola sirve como primer modelo, pero no describe toda la organización real." },
+        { key: "week01_event_loop_model_loop", eyebrow: "COORDINACIÓN", title: "Event loop", body: "Recorre fases y permite ejecutar callbacks listas de a una. Una callback larga retrasa los demás turnos aunque la operación que la originó haya sido asíncrona." },
+      ],
+    },
+    {
+      key: "week01_event_loop_order_code", type: "code", title: "Predicción 1 · orden.js", language: "javascript",
+      code: 'console.log("A");\nsetTimeout(() => console.log("B"), 0);\nconsole.log("C");',
+    },
+    {
+      key: "week01_event_loop_order_trace", type: "steps", title: "Seguí la ejecución antes de mirar la respuesta", items: [
+        { key: "week01_event_loop_trace_a", title: "A se imprime ahora", body: "console.log(\"A\") ocupa la pila y termina de forma sincrónica." },
+        { key: "week01_event_loop_trace_timer", title: "El temporizador se registra", body: "setTimeout solicita ejecutar su callback después de un umbral mínimo. Registrar la callback no imprime B y la llamada devuelve el control." },
+        { key: "week01_event_loop_trace_c", title: "C sigue en el mismo script", body: "console.log(\"C\") ya está listo, entra en la pila y se ejecuta antes de que finalice el código principal." },
+        { key: "week01_event_loop_trace_b", title: "B recibe un turno posterior", body: "Cuando el script terminó, el umbral se cumplió y la fase correspondiente puede atenderla, la callback imprime B." },
+      ],
+    },
+    images[2],
+    {
+      key: "week01_event_loop_timer_rule", type: "callout", tone: "warning", eyebrow: "0 MS NO SIGNIFICA AHORA", title: "Un temporizador marca desde cuándo puede ejecutarse",
+      body: { type: "doc", content: [
+        richParagraph("setTimeout(callback, 0) registra la callback para una oportunidad posterior. No interrumpe la pila actual y Node.js aplica un umbral mínimo interno a retrasos tan pequeños."),
+        richParagraph("El instante real tampoco es exacto: otras callbacks, el sistema operativo y el trabajo pendiente pueden demorarlo. El dato confiable en este ejemplo es el orden A, C, B, no una cantidad precisa de milisegundos."),
+      ] },
+    },
+    {
+      key: "week01_event_loop_file_code", type: "code", title: "Predicción 2 · leer-archivo.js", language: "javascript",
+      code: 'const { readFile } = require("node:fs");\n\nconsole.log("Inicio");\n\nreadFile(__filename, "utf8", (error, contenido) => {\n  if (error) {\n    console.error("No se pudo leer:", error.message);\n    return;\n  }\n\n  console.log("Archivo listo:", contenido.length, "caracteres");\n});\n\nconsole.log("Fin");',
+    },
+    {
+      key: "week01_event_loop_file_output", type: "terminal", title: "Ejecutá y comprobá el orden", rows: [
+        { key: "week01_event_loop_file_command", kind: "command", label: "Comando", value: "node leer-archivo.js" },
+        { key: "week01_event_loop_file_start", kind: "response", label: "Salida 1", value: "Inicio" },
+        { key: "week01_event_loop_file_end", kind: "response", label: "Salida 2", value: "Fin" },
+        { key: "week01_event_loop_file_ready", kind: "response", label: "Salida 3", value: "Archivo listo: [cantidad] caracteres" },
+        { key: "week01_event_loop_file_observe", kind: "prompt", label: "Qué observar", value: "La cantidad depende del archivo; lo importante es que la callback de readFile imprime la tercera línea." },
+      ],
+    },
+    {
+      key: "week01_event_loop_file_lessons", type: "cards", title: "Qué demuestra esta lectura", columns: 2, items: [
+        { key: "week01_event_loop_lesson_concurrency", eyebrow: "CONCURRENCIA", title: "readFile inicia y devuelve", body: "La lectura del sistema de archivos se coordina fuera del hilo del event loop. Por eso el programa puede imprimir Fin mientras la operación sigue en curso." },
+        { key: "week01_event_loop_lesson_callback", eyebrow: "CALLBACK", title: "El resultado vuelve a JavaScript", body: "Cuando la lectura termina, la callback queda lista y después se ejecuta en el hilo del event loop. Asíncrono no significa que esa callback JavaScript corra en paralelo." },
+        { key: "week01_event_loop_lesson_sync", eyebrow: "BLOQUEO", title: "readFileSync espera", body: "La variante síncrona impide avanzar con más JavaScript hasta completar la lectura. Puede ser práctica en scripts breves, pero en una ruta concurrida retrasa los demás turnos." },
+        { key: "week01_event_loop_lesson_commonjs", eyebrow: "PUENTE A MÓDULOS", title: "require y __filename", body: "En este archivo CommonJS, require obtiene la API y __filename identifica el propio archivo. La siguiente sección explicará con más detalle cómo funcionan los módulos." },
+      ],
+    },
+    question,
+  ];
+}
+
+function curateCommonJsModulesSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "11-modulos");
+  if (!section) throw new Error("No se encontró la sección sobre módulos CommonJS.");
+  const images = section.blocks.filter((block) => block.type === "image");
+  const question = section.blocks.find((block) => block.type === "question");
+  if (images.length !== 2 || !question) throw new Error("La sección de módulos perdió imágenes o su pregunta requerida.");
+
+  images[0].caption = "Los cajones representan responsabilidades relacionadas y app.js coordina sus capacidades públicas. La separación se decide por propósito: un módulo puede contener varias funciones que colaboran, no hace falta crear un archivo por función.";
+  images[1].caption = "Una única práctica, de punta a punta: 1) operaciones.js define y exporta sumar; 2) app.js la importa con una ruta local y la ejecuta; 3) la terminal muestra 12.";
+
+  section.title = "Un archivo, una responsabilidad clara";
+  section.summary = "Construí un contrato CommonJS entre dos archivos y aprendé a resolver, ejecutar y diagnosticar una importación local.";
+  section.blocks = [
+    {
+      key: "week01_modulos_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO", title: "Separá una responsabilidad sin perder de vista el programa",
+      body: { type: "doc", content: [
+        richParagraph("En CommonJS, Node.js trata cada archivo como un módulo con su propio alcance. Sus variables y funciones son locales; module.exports define la interfaz que otro módulo puede recibir mediante require."),
+        richParagraph("Modularizar no significa repartir código al azar. Agrupá lo que comparte un propósito y exportá sólo las capacidades que otro archivo realmente necesita."),
+      ] },
+    },
+    images[0],
+    {
+      key: "week01_modulos_principles", type: "cards", title: "Cuatro decisiones detrás de un módulo", columns: 2, items: [
+        { key: "week01_modulos_principle_cohesion", eyebrow: "PROPÓSITO", title: "Código relacionado", body: "Un módulo reúne funciones y datos que colaboran con una responsabilidad explicable, como realizar operaciones matemáticas." },
+        { key: "week01_modulos_principle_scope", eyebrow: "ALCANCE", title: "Privado de forma predeterminada", body: "Los nombres definidos en un archivo no aparecen automáticamente en otro. Cada módulo conserva su propio alcance." },
+        { key: "week01_modulos_principle_interface", eyebrow: "CONTRATO", title: "Una interfaz pública", body: "module.exports es el valor que require recibe. Exportar sólo lo necesario reduce dependencias con detalles internos." },
+        { key: "week01_modulos_principle_entry", eyebrow: "ENTRADA", title: "Un archivo que coordina", body: "app.js inicia el programa, importa capacidades y ordena el flujo. Su lectura debería permitir reconocer qué hace la aplicación." },
+      ],
+    },
+    {
+      key: "week01_modulos_operations_code", type: "code", title: "1 · operaciones.js define y exporta", language: "javascript",
+      code: "function sumar(a, b) {\n  return a + b;\n}\n\nmodule.exports = { sumar };",
+    },
+    {
+      key: "week01_modulos_app_code", type: "code", title: "2 · app.js importa y usa", language: "javascript",
+      code: 'const { sumar } = require("./operaciones");\n\nconsole.log(sumar(8, 4));',
+    },
+    images[1],
+    {
+      key: "week01_modulos_require_journey", type: "steps", title: "Qué ocurre al ejecutar node app.js", items: [
+        { key: "week01_modulos_journey_entry", title: "Node.js comienza por app.js", body: "Ese archivo es el punto de entrada indicado en el comando y ejecuta su primera instrucción." },
+        { key: "week01_modulos_journey_resolve", title: "require resuelve ./operaciones", body: "El prefijo ./ pide buscar desde la carpeta de app.js, que es el módulo que realiza la llamada. No parte de process.cwd()." },
+        { key: "week01_modulos_journey_load", title: "operaciones.js se carga", body: "En la primera carga, Node.js ejecuta el módulo dentro de su propio alcance y crea la función sumar." },
+        { key: "week01_modulos_journey_contract", title: "module.exports vuelve a app.js", body: "require devuelve el objeto { sumar }. La desestructuración obtiene la propiedad sumar y crea una referencia local con ese nombre." },
+        { key: "week01_modulos_journey_call", title: "app.js usa el contrato", body: "sumar(8, 4) devuelve 12 y console.log lo envía a la terminal. app.js no necesita conocer otros detalles internos." },
+      ],
+    },
+    {
+      key: "week01_modulos_identifiers", type: "cards", title: "Leé la intención antes de buscar el archivo", columns: 2, items: [
+        { key: "week01_modulos_identifier_same", eyebrow: "./operaciones", title: "Archivo local vecino", body: "Empieza en la carpeta del módulo que llama. En CommonJS, Node.js puede completar la extensión .js en este ejemplo; ./ sigue siendo necesario." },
+        { key: "week01_modulos_identifier_parent", eyebrow: "../utilidades", title: "Una carpeta superior", body: "Cada ../ sube un nivel desde el módulo que importa antes de continuar la búsqueda." },
+        { key: "week01_modulos_identifier_builtin", eyebrow: "node:fs", title: "Módulo incorporado", body: "El prefijo node: declara de forma explícita una API provista por Node.js; no representa un archivo del proyecto ni un paquete instalado." },
+        { key: "week01_modulos_identifier_package", eyebrow: "express", title: "Paquete instalado", body: "Un identificador sin ./, ../ o node: puede activar la resolución de paquetes, normalmente a través de carpetas node_modules cercanas al módulo que importa." },
+      ],
+    },
+    {
+      key: "week01_modulos_tree", type: "code", title: "Creá los dos archivos en la misma carpeta", language: "text",
+      code: "modulos/\n├── app.js\n└── operaciones.js",
+    },
+    {
+      key: "week01_modulos_output", type: "terminal", title: "3 · Ejecutá el punto de entrada", rows: [
+        { key: "week01_modulos_output_command", kind: "command", label: "Comando", value: "node app.js" },
+        { key: "week01_modulos_output_result", kind: "response", label: "Resultado", value: "12" },
+        { key: "week01_modulos_output_contract", kind: "prompt", label: "Qué verifica", value: "app.js encontró ./operaciones, recibió sumar y pudo ejecutar el contrato exportado." },
+      ],
+    },
+    {
+      key: "week01_modulos_responsibilities", type: "cards", title: "Cómo decidir el límite", columns: 3, items: [
+        { key: "week01_modulos_responsibility_operations", eyebrow: "operaciones.js", title: "Sabe calcular", body: "Reúne operaciones relacionadas y decide cuáles ofrece. Puede tener varias funciones si pertenecen al mismo propósito." },
+        { key: "week01_modulos_responsibility_app", eyebrow: "app.js", title: "Sabe coordinar", body: "Importa capacidades, prepara los datos, ordena los pasos y presenta el resultado sin repetir la implementación de cada operación." },
+        { key: "week01_modulos_responsibility_signal", eyebrow: "SEÑAL ÚTIL", title: "El nombre explica el conjunto", body: "Si podés describir el archivo con un propósito breve y sus partes colaboran, el límite es razonable. No existe una regla de un archivo por función." },
+      ],
+    },
+    {
+      key: "week01_modulos_diagnostics", type: "cards", title: "Si no funciona, revisá el contrato antes de reescribir", columns: 2, items: [
+        { key: "week01_modulos_diagnostic_not_found", eyebrow: "MODULE_NOT_FOUND", title: "Ruta, nombre y mayúsculas", body: "Confirmá que ambos archivos estén donde indica el árbol, que operaciones.js esté bien escrito y que la ruta local comience con ./; respetá también mayúsculas y minúsculas." },
+        { key: "week01_modulos_diagnostic_function", eyebrow: "NO ES UNA FUNCIÓN", title: "Exportación e importación coinciden", body: "Verificá que module.exports contenga una propiedad sumar y que app.js desestructure exactamente el mismo nombre." },
+        { key: "week01_modulos_diagnostic_system", eyebrow: "require NO ESTÁ DEFINIDO", title: "El proyecto puede estar usando ESM", body: "Estos ejemplos son CommonJS. Revisá package.json y las extensiones antes de cambiar código; no mezcles require con import al azar como solución." },
+        { key: "week01_modulos_diagnostic_command", eyebrow: "COMANDO", title: "Ejecutá el archivo de entrada", body: "Ubicate en modulos y usá node app.js. Si estás en otra carpeta, el comando debe señalar correctamente app.js, aunque sus require relativos seguirán resolviéndose desde ese archivo." },
+      ],
+    },
+    question,
+  ];
+}
+
+function curateModularProgramSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "12-programa-modular");
+  if (!section) throw new Error("No se encontró la práctica del programa modular.");
+  const checklist = section.blocks.find((block) => block.type === "checklist");
+  if (!checklist) throw new Error("La práctica del programa modular perdió su evidencia requerida.");
+
+  section.summary = "Construí y comprobá un programa CommonJS que recibe un nombre, genera un saludo y guarda un historial junto a sus módulos.";
+  section.blocks = [
+    {
+      key: "week01_programa_modular_objective", type: "callout", tone: "info", eyebrow: "PRÁCTICA INTEGRADORA", title: "Construí una conducta completa, no sólo tres archivos",
+      body: { type: "doc", content: [
+        richParagraph("Vas a conectar terminal, argumentos, módulos y escritura asíncrona en un programa pequeño que se pueda explicar y comprobar de punta a punta."),
+        richParagraph("Trabajá un bloque por vez. Después de cada archivo, compará nombres, rutas y salidas antes de continuar; copiar todo junto vuelve más difícil encontrar un error."),
+      ] },
+    },
+    {
+      key: "week01_programa_modular_tree", type: "code", title: "El resultado final", language: "text",
+      code: "programa-modular-node/\n├── app.js\n├── saludos.js\n├── historial.js\n├── README.md\n└── historial.txt  ← se crea al ejecutar",
+    },
+    {
+      key: "week01_programa_modular_contract", type: "cards", title: "Definí el contrato antes de programar", columns: 2, items: [
+        { key: "week01_programa_modular_contract_input", eyebrow: "ENTRADA", title: "Un nombre desde la terminal", body: "El comando admite nombres de una o más palabras, por ejemplo node app.js \"Ana Pérez\"." },
+        { key: "week01_programa_modular_contract_output", eyebrow: "SALIDA", title: "Dos mensajes verificables", body: "La terminal muestra Hola, Ana Pérez y, cuando termina la escritura, Historial actualizado." },
+        { key: "week01_programa_modular_contract_file", eyebrow: "PERSISTENCIA", title: "Una línea por ejecución", body: "Cada ejecución válida agrega el saludo a historial.txt sin reemplazar los registros anteriores." },
+        { key: "week01_programa_modular_contract_error", eyebrow: "ENTRADA INVÁLIDA", title: "Ayuda sin modificar el archivo", body: "Si falta el nombre, el programa muestra cómo usarlo, indica un resultado fallido y no escribe en el historial." },
+      ],
+    },
+    {
+      key: "week01_programa_modular_journey", type: "steps", title: "El recorrido de construcción", items: [
+        { key: "week01_programa_modular_journey_prepare", title: "Prepará el espacio", body: "Creá la carpeta del proyecto y abrila en Visual Studio Code." },
+        { key: "week01_programa_modular_journey_modules", title: "Separá responsabilidades", body: "saludos.js construye el texto e historial.js administra dónde y cómo guardarlo." },
+        { key: "week01_programa_modular_journey_coordinate", title: "Coordiná desde app.js", body: "Leé y validá la entrada, pedí el saludo, mostralo y solicitá la escritura." },
+        { key: "week01_programa_modular_journey_verify", title: "Probá conductas, no líneas", body: "Ejecutá casos válidos e inválidos y comprobá también el contenido del archivo." },
+      ],
+    },
+    {
+      key: "week01_programa_modular_workspace", type: "code", title: "1 · Prepará la carpeta", language: "bash",
+      code: "mkdir programa-modular-node\ncd programa-modular-node\ncode .",
+    },
+    {
+      key: "week01_programa_modular_greeting_code", type: "code", title: "2 · saludos.js crea el mensaje", language: "javascript",
+      code: "function crearSaludo(nombre) {\n  return `Hola, ${nombre}`;\n}\n\nmodule.exports = { crearSaludo };",
+    },
+    {
+      key: "week01_programa_modular_history_code", type: "code", title: "3 · historial.js guarda junto al módulo", language: "javascript",
+      code: "const { appendFile } = require(\"node:fs\");\nconst path = require(\"node:path\");\n\nconst archivoHistorial = path.join(__dirname, \"historial.txt\");\n\nfunction guardarSaludo(texto, callback) {\n  appendFile(archivoHistorial, `${texto}\\n`, \"utf8\", callback);\n}\n\nmodule.exports = { guardarSaludo };",
+    },
+    {
+      key: "week01_programa_modular_app_code", type: "code", title: "4 · app.js valida y coordina", language: "javascript",
+      code: "const { crearSaludo } = require(\"./saludos\");\nconst { guardarSaludo } = require(\"./historial\");\n\nconst nombre = process.argv.slice(2).join(\" \").trim();\n\nif (!nombre) {\n  console.error('Uso: node app.js \"Tu nombre\"');\n  process.exitCode = 1;\n} else {\n  const saludo = crearSaludo(nombre);\n  console.log(saludo);\n\n  guardarSaludo(saludo, (error) => {\n    if (error) {\n      console.error(\"No se pudo actualizar el historial:\", error.message);\n      process.exitCode = 1;\n      return;\n    }\n\n    console.log(\"Historial actualizado\");\n  });\n}",
+    },
+    {
+      key: "week01_programa_modular_success", type: "terminal", title: "5 · Comprobá una ejecución válida", rows: [
+        { key: "week01_programa_modular_success_command", kind: "command", label: "Comando", value: "node app.js \"Ana Pérez\"" },
+        { key: "week01_programa_modular_success_greeting", kind: "response", label: "Salida 1", value: "Hola, Ana Pérez" },
+        { key: "week01_programa_modular_success_saved", kind: "response", label: "Salida 2", value: "Historial actualizado" },
+        { key: "week01_programa_modular_success_file", kind: "prompt", label: "Archivo", value: "historial.txt contiene una nueva línea: Hola, Ana Pérez" },
+      ],
+    },
+    {
+      key: "week01_programa_modular_missing_name", type: "terminal", title: "6 · Comprobá la entrada inválida", rows: [
+        { key: "week01_programa_modular_missing_command", kind: "command", label: "Comando", value: "node app.js" },
+        { key: "week01_programa_modular_missing_error", kind: "response", label: "Mensaje", value: "Uso: node app.js \"Tu nombre\"" },
+        { key: "week01_programa_modular_missing_exit", kind: "prompt", label: "Resultado", value: "El proceso termina con código 1 y el historial no recibe una línea nueva." },
+      ],
+    },
+    {
+      key: "week01_programa_modular_reading", type: "cards", title: "Leé las decisiones que hacen funcionar el programa", columns: 2, items: [
+        { key: "week01_programa_modular_reading_arguments", eyebrow: "process.argv", title: "El nombre empieza en la posición 2", body: "Las primeras dos posiciones identifican Node.js y app.js. slice(2) conserva los argumentos del usuario; join permite reunir un nombre de varias palabras y trim elimina espacios sobrantes." },
+        { key: "week01_programa_modular_reading_path", eyebrow: "__dirname + path.join", title: "El archivo tiene un hogar estable", body: "__dirname identifica la carpeta de historial.js y path.join usa el separador correcto del sistema. El resultado no depende de la carpeta actual de la terminal." },
+        { key: "week01_programa_modular_reading_append", eyebrow: "appendFile", title: "Agrega sin reemplazar", body: "La operación asíncrona crea historial.txt si todavía no existe o agrega el texto al final. La callback avisa si terminó correctamente o recibió un error." },
+        { key: "week01_programa_modular_reading_exit", eyebrow: "process.exitCode", title: "El error queda visible", body: "Asignar 1 comunica que el comando falló sin forzar una salida inmediata. El bloque else evita generar y guardar un saludo vacío." },
+      ],
+    },
+    {
+      key: "week01_programa_modular_user_checks", type: "steps", title: "Probalo como usuario", items: [
+        { key: "week01_programa_modular_check_ana", title: "Ejecutá con un nombre", body: "Usá node app.js \"Ana Pérez\" y compará las dos salidas con el ejemplo." },
+        { key: "week01_programa_modular_check_second", title: "Agregá otra persona", body: "Ejecutá node app.js \"Luz Díaz\" para comprobar que los espacios se conservan." },
+        { key: "week01_programa_modular_check_file", title: "Abrí historial.txt", body: "Confirmá que existen dos líneas, en el mismo orden, y que la primera no fue reemplazada." },
+        { key: "week01_programa_modular_check_missing", title: "Omití el nombre", body: "Ejecutá node app.js y verificá el mensaje de uso. Volvé a abrir el archivo: debe continuar con dos líneas." },
+        { key: "week01_programa_modular_check_parent", title: "Probá desde la carpeta superior", body: "Volvé con cd .. y ejecutá node programa-modular-node/app.js \"Sol\". La nueva línea debe aparecer dentro del proyecto." },
+      ],
+    },
+    {
+      key: "week01_programa_modular_readme", type: "code", title: "7 · README.md permite repetir la prueba", language: "markdown",
+      code: "# Programa modular de saludos\n\n## Ejecutar\n\n```bash\nnode app.js \"Ana Pérez\"\n```\n\n## Resultado esperado\n\nLa terminal muestra el saludo y confirma que el historial fue actualizado.\nCada ejecución válida agrega una línea a `historial.txt`.",
+    },
+    {
+      key: "week01_programa_modular_diagnostics", type: "cards", title: "Si algo no coincide, aislá el problema", columns: 2, items: [
+        { key: "week01_programa_modular_diagnostic_module", eyebrow: "MODULE_NOT_FOUND", title: "Revisá nombres y rutas", body: "Los tres archivos .js deben estar en la misma carpeta. app.js importa ./saludos y ./historial con esos nombres exactos." },
+        { key: "week01_programa_modular_diagnostic_argument", eyebrow: "SALUDO INCOMPLETO", title: "Usá comillas para probar", body: "En la terminal, rodeá los nombres con espacios entre comillas. El código también reúne todos los argumentos posteriores por si las omitís." },
+        { key: "week01_programa_modular_diagnostic_permission", eyebrow: "EACCES O EPERM", title: "Elegí una carpeta propia", body: "El sistema operativo impidió escribir. Mové el proyecto a una carpeta de trabajo donde tengas permisos; no eleves privilegios ni desactives protecciones." },
+        { key: "week01_programa_modular_diagnostic_history", eyebrow: "HISTORIAL INESPERADO", title: "Confirmá __dirname", body: "historial.js debe usar path.join(__dirname, \"historial.txt\"). Así la ubicación no depende del prompt desde el que ejecutaste app.js." },
+      ],
+    },
+    {
+      key: "week01_programa_modular_question", type: "question", activityKey: "week01_programa_modular_question", required: true, questionKind: "single",
+      prompt: "Al ejecutar `node app.js \"Ana Pérez\"`, ¿qué obtiene `process.argv.slice(2).join(\" \").trim()`?", options: [
+        { key: "name", label: "Ana Pérez", code: true },
+        { key: "script", label: "app.js", code: true },
+        { key: "command", label: "node app.js", code: true },
+      ], correctOptionKeys: ["name"],
+    },
+    {
+      key: checklist.key, type: "checklist", activityKey: checklist.activityKey, required: true, title: "Evidencia de funcionamiento", description: "Marcá cada punto sólo después de observarlo en la terminal o en el archivo.", items: [
+        { key: "week01_programa_modular_evidence_input", label: "El programa acepta un nombre de varias palabras desde la terminal." },
+        { key: "week01_programa_modular_evidence_modules", label: "app.js coordina las capacidades exportadas por saludos.js e historial.js." },
+        { key: "week01_programa_modular_evidence_append", label: "Dos ejecuciones válidas producen dos líneas en historial.txt sin reemplazar la primera." },
+        { key: "week01_programa_modular_evidence_invalid", label: "Una ejecución sin nombre muestra el uso y no modifica historial.txt." },
+        { key: "week01_programa_modular_evidence_readme", label: "README.md explica el comando y el resultado esperado." },
+        { key: "week01_programa_modular_evidence_location", label: "Al ejecutar app.js desde la carpeta superior, historial.txt permanece dentro del proyecto." },
+      ],
+    },
+  ];
+}
+
+function curateTroubleshootingSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "13-errores-frecuentes");
+  if (!section) throw new Error("No se encontró la guía de errores frecuentes.");
+  const question = section.blocks.find((block) => block.type === "question");
+  if (!question) throw new Error("La guía de errores perdió su pregunta requerida.");
+
+  section.summary = "Aprendé a convertir un mensaje de error en evidencia, una hipótesis y una corrección mínima que puedas comprobar.";
+  section.blocks = [
+    {
+      key: "week01_errores_frecuentes_objective", type: "callout", tone: "info", eyebrow: "RUTINA DE DIAGNÓSTICO", title: "El error no es la explicación: es la primera evidencia",
+      body: { type: "doc", content: [
+        richParagraph("Un mensaje puede señalar una clase de problema, una ruta y una línea, pero todavía necesitás relacionarlo con el comando y el código que ejecutaste."),
+        richParagraph("Tu objetivo no es borrar el mensaje rápido: es formular una causa posible, cambiar una sola cosa y comprobar si esa causa explicaba el fallo."),
+      ] },
+    },
+    {
+      key: "week01_errores_frecuentes_routine", type: "steps", title: "Una rutina que podés repetir", items: [
+        { key: "week01_errores_frecuentes_routine_reproduce", title: "Reproducí", body: "Volvé a ejecutar el mismo comando y confirmá que el fallo ocurre de la misma manera." },
+        { key: "week01_errores_frecuentes_routine_preserve", title: "Conservá el mensaje completo", body: "No recortes la primera línea, el código ni el stack: juntos muestran clase, descripción y recorrido." },
+        { key: "week01_errores_frecuentes_routine_locate", title: "Ubicá la primera referencia propia", body: "Leé desde arriba y buscá el primer archivo de tu proyecto, con su línea y columna. Las líneas internas de Node.js aportan contexto, pero no suelen ser donde editar." },
+        { key: "week01_errores_frecuentes_routine_hypothesis", title: "Escribí una hipótesis", body: "Convertí la evidencia en una causa concreta: “la ruta local no comienza con ./”, no simplemente “el módulo está mal”." },
+        { key: "week01_errores_frecuentes_routine_change", title: "Cambiá una sola cosa", body: "Aplicá el ajuste mínimo que pondría a prueba tu hipótesis. Guardá el archivo antes de continuar." },
+        { key: "week01_errores_frecuentes_routine_compare", title: "Repetí y compará", body: "Usá exactamente el mismo comando. Si cambia el mensaje, registrá el nuevo resultado antes de formar otra hipótesis." },
+      ],
+    },
+    {
+      key: "week01_errores_frecuentes_anatomy", type: "cards", title: "Qué partes del mensaje merecen atención", columns: 2, items: [
+        { key: "week01_errores_frecuentes_anatomy_class", eyebrow: "CLASE + MENSAJE", title: "Qué tipo de operación falló", body: "SyntaxError, ReferenceError o TypeError describen categorías de JavaScript. El texto humano agrega contexto, pero puede variar entre versiones." },
+        { key: "week01_errores_frecuentes_anatomy_location", eyebrow: "ARCHIVO:LÍNEA:COLUMNA", title: "Dónde empezar a leer", body: "Buscá la primera ubicación que pertenezca a tu proyecto. Abrí esa línea y revisá también las inmediatamente anteriores." },
+        { key: "week01_errores_frecuentes_anatomy_code", eyebrow: "error.code", title: "Una etiqueta más estable", body: "Node.js usa códigos como MODULE_NOT_FOUND, ENOENT o EPERM. Para errores del sistema, el código es una señal más estable que el texto exacto del mensaje." },
+        { key: "week01_errores_frecuentes_anatomy_context", eyebrow: "STACK, RUTA O REQUIRE STACK", title: "Cómo llegó hasta allí", body: "El stack muestra llamadas; require stack muestra qué archivo intentó importar; error.path puede identificar la ruta de una operación de archivos." },
+      ],
+    },
+    {
+      key: "week01_errores_frecuentes_broken_module", type: "code", title: "Caso 1 · app.js trata un archivo local como paquete", language: "javascript",
+      code: "const { crearSaludo } = require(\"saludos\");\n\nconsole.log(crearSaludo(\"Ana\"));",
+    },
+    {
+      key: "week01_errores_frecuentes_module_failure", type: "terminal", title: "Leé antes de editar", rows: [
+        { key: "week01_errores_frecuentes_module_command", kind: "command", label: "Comando", value: "node app.js" },
+        { key: "week01_errores_frecuentes_module_message", kind: "response", label: "Clase y mensaje", value: "Error: Cannot find module 'saludos'" },
+        { key: "week01_errores_frecuentes_module_code", kind: "response", label: "Código", value: "MODULE_NOT_FOUND" },
+        { key: "week01_errores_frecuentes_module_stack", kind: "prompt", label: "Primera pista propia", value: "Require stack → ...\\programa-modular-node\\app.js" },
+        { key: "week01_errores_frecuentes_module_hypothesis", kind: "prompt", label: "Hipótesis", value: "saludos.js es vecino, pero require(\"saludos\") pide resolver un paquete." },
+      ],
+    },
+    {
+      key: "week01_errores_frecuentes_fixed_module", type: "code", title: "Caso 1 · Cambiá únicamente el identificador", language: "javascript",
+      code: "const { crearSaludo } = require(\"./saludos\");\n\nconsole.log(crearSaludo(\"Ana\"));",
+    },
+    {
+      key: "week01_errores_frecuentes_module_success", type: "terminal", title: "Repetí el mismo comando", rows: [
+        { key: "week01_errores_frecuentes_success_command", kind: "command", label: "Comando", value: "node app.js" },
+        { key: "week01_errores_frecuentes_success_result", kind: "response", label: "Resultado", value: "Hola, Ana" },
+        { key: "week01_errores_frecuentes_success_conclusion", kind: "prompt", label: "Conclusión", value: "La ruta relativa confirma la hipótesis; no fue necesario reinstalar Node.js ni renombrar app.js." },
+      ],
+    },
+    {
+      key: "week01_errores_frecuentes_map", type: "cards", title: "Un mapa breve para elegir la primera inspección", columns: 2, items: [
+        { key: "week01_errores_frecuentes_map_syntax", eyebrow: "SyntaxError", title: "Node.js no pudo analizar el código", body: "Empezá por la ubicación indicada y revisá también la línea anterior: una comilla, llave o paréntesis sin cerrar puede desplazar la señal." },
+        { key: "week01_errores_frecuentes_map_reference", eyebrow: "ReferenceError", title: "El nombre no existe allí", body: "Compará la escritura exacta y revisá orden y alcance. No agregues una variable global sólo para silenciar el mensaje." },
+        { key: "week01_errores_frecuentes_map_type", eyebrow: "TypeError", title: "El valor no admite esa operación", body: "Inspeccioná el valor y typeof. Si esperabas una función importada, compará el nombre exportado con el desestructurado." },
+        { key: "week01_errores_frecuentes_map_module", eyebrow: "MODULE_NOT_FOUND", title: "CommonJS no resolvió el identificador", body: "Para un archivo vecino, revisá ./, nombre y mayúsculas. Después usá require stack para confirmar qué módulo hizo la importación." },
+        { key: "week01_errores_frecuentes_map_enoent", eyebrow: "ENOENT", title: "Una parte de la ruta no existe", body: "En operaciones de archivos, observá error.path y verificá cada carpeta. appendFile puede crear el archivo, pero no una carpeta padre ausente." },
+        { key: "week01_errores_frecuentes_map_permission", eyebrow: "EACCES / EPERM", title: "El sistema rechazó la operación", body: "Trabajá en una carpeta propia y comprobá permisos. No ejecutes como administrador ni desactives protecciones como primera solución." },
+      ],
+    },
+    {
+      key: "week01_errores_frecuentes_callback", type: "code", title: "Caso 2 · Inspeccioná el error donde llega", language: "javascript",
+      code: "guardarSaludo(saludo, (error) => {\n  if (error) {\n    console.error(\"Código:\", error.code);\n    console.error(\"Ruta:\", error.path);\n    process.exitCode = 1;\n    return;\n  }\n\n  console.log(\"Historial actualizado\");\n});",
+    },
+    {
+      key: "week01_errores_frecuentes_channels", type: "cards", title: "El momento del fallo determina dónde observarlo", columns: 3, items: [
+        { key: "week01_errores_frecuentes_channel_parse", eyebrow: "ANTES DE EJECUTAR", title: "SyntaxError detiene el inicio", body: "Si el archivo no puede analizarse, ninguna traza de ese archivo llega a ejecutarse. Corregí la sintaxis señalada y probá otra vez." },
+        { key: "week01_errores_frecuentes_channel_throw", eyebrow: "DURANTE JAVASCRIPT", title: "La excepción aparece en el stack", body: "ReferenceError y TypeError se lanzan al ejecutar una operación. La primera ubicación propia ayuda a encontrar el valor o nombre involucrado." },
+        { key: "week01_errores_frecuentes_channel_callback", eyebrow: "AL COMPLETAR LA OPERACIÓN", title: "La callback recibe el error", body: "La escritura termina después. Inspeccioná el parámetro error dentro de la callback; un try/catch alrededor de guardarSaludo no captura ese resultado posterior." },
+      ],
+    },
+    {
+      key: "week01_errores_frecuentes_trace", type: "code", title: "Trazas temporales con nombres y valores reales", language: "javascript",
+      code: "console.log(\"[1] nombre recibido:\", nombre);\n\nconst saludo = crearSaludo(nombre);\nconsole.log(\"[2] saludo creado:\", saludo);\n\nguardarSaludo(saludo, (error) => {\n  console.log(\"[3] callback:\", error ? error.code : \"sin error\");\n  // Conservá aquí el manejo de error y éxito.\n});",
+    },
+    {
+      key: "week01_errores_frecuentes_log", type: "code", title: "Bitácora mínima para investigar o pedir ayuda", language: "text",
+      code: "Comando exacto:\nPrimer mensaje útil:\nCódigo de error:\nPrimer archivo y línea de mi proyecto:\nQué esperaba que ocurriera:\nHipótesis concreta:\nÚnico cambio realizado:\nResultado al repetir el comando:",
+    },
+    {
+      key: "week01_errores_frecuentes_help", type: "cards", title: "Una consulta útil permite reproducir el problema", columns: 2, items: [
+        { key: "week01_errores_frecuentes_help_useful", eyebrow: "COMPARTÍ", title: "Contexto que otra persona puede seguir", body: "“Ejecuté node app.js. Recibí MODULE_NOT_FOUND para saludos desde app.js. Probé agregar ./ y ahora aparece Hola, Ana”. Adjuntá texto completo cuando todavía falle." },
+        { key: "week01_errores_frecuentes_help_avoid", eyebrow: "EVITÁ", title: "Mensajes sin evidencia", body: "“No funciona” no identifica comando, resultado ni cambio. Tampoco recortes la primera línea o hagas varias modificaciones antes de volver a probar." },
+      ],
+    },
+    question,
+  ];
+}
+
+function curateSectionFlow(allSections) {
+  const localGit = allSections.find((section) => section.sourceFolder === "07-publica-primera-entrega");
+  const delivery = allSections.find((section) => section.sourceFolder === "15-evidencia-avance");
+  if (!localGit || !delivery) throw new Error("No se encontraron las secciones necesarias para ordenar el recorrido.");
+  const remoteStart = localGit.blocks.findIndex((block) => blockText(block).includes("Creá un repositorio vacío en GitHub"));
+  const troubleshootingStart = localGit.blocks.findIndex((block) => blockText(block).includes("Usá el mensaje como evidencia"));
+  if (remoteStart < 0 || troubleshootingStart <= remoteStart) throw new Error("No se pudo dividir el recorrido de Git y GitHub.");
+  const interactive = localGit.blocks.filter((block) => block.type === "validator" || block.type === "generator");
+  const localQuestion = localGit.blocks.find((block) => block.type === "question");
+  const remoteBlocks = localGit.blocks.slice(remoteStart, troubleshootingStart).filter((block) => block.type !== "checklist");
+  localGit.blocks = localGit.blocks.slice(0, remoteStart).filter((block) => block.type !== "checklist" && block.type !== "validator" && block.type !== "generator");
+  if (localQuestion) localGit.blocks.push(localQuestion);
+  localGit.title = "Guardá una versión con Git";
+  localGit.summary = "Revisá el programa modular, iniciá su historial y creá el commit que después publicarás.";
+  delivery.blocks = [...remoteBlocks, ...interactive, ...delivery.blocks];
+  delivery.title = "Publicá y verificá tu entrega";
+  delivery.summary = "Conectá programa-modular-node con GitHub y comprobá que otra persona pueda abrirlo, entenderlo y ejecutarlo.";
+}
+
+function curateLocalGitSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "07-publica-primera-entrega");
+  if (!section) throw new Error("No se encontró la sección de Git local.");
+  const question = section.blocks.find((block) => block.type === "question");
+  if (!question) throw new Error("La sección de Git local perdió su pregunta requerida.");
+
+  section.title = "Guardá una versión con Git";
+  section.summary = "Revisá qué contiene el programa modular, prepará una instantánea segura y comprobá tu primer commit local antes de publicarlo.";
+  section.blocks = [
+    {
+      key: "week01_publica_primera_entrega_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO · REPOSITORIO LOCAL", title: "Guardá una versión que puedas explicar",
+      body: { type: "doc", content: [
+        richParagraph("En esta sección Git trabaja solamente en tu computadora. Vas a decidir qué archivos forman la próxima versión, inspeccionarlos y crear un commit verificable."),
+        richParagraph("El commit no publica nada en GitHub. La conexión remota y el push llegan después, cuando la versión local ya está completa y revisada."),
+      ] },
+    },
+    {
+      key: "week01_publica_primera_entrega_model", type: "cards", title: "Cuatro lugares para no mezclar", columns: 2, items: [
+        { key: "week01_publica_primera_entrega_model_worktree", eyebrow: "CARPETA DE TRABAJO", title: "Los archivos que editás", body: "Acá están app.js, los módulos, README.md y también resultados generados. Git todavía no decide por vos qué debe formar parte de una versión." },
+        { key: "week01_publica_primera_entrega_model_ignore", eyebrow: ".gitignore", title: "Lo que debe seguir sin registrar", body: "Declara archivos intencionalmente no versionados, como historial.txt, .env, logs y dependencias instaladas. No borra esos archivos." },
+        { key: "week01_publica_primera_entrega_model_stage", eyebrow: "STAGING · INDEX", title: "El borrador del próximo commit", body: "git add copia al staging el contenido actual de los archivos elegidos. Si volvés a editarlos, necesitás agregarlos otra vez para actualizar esa copia." },
+        { key: "week01_publica_primera_entrega_model_commit", eyebrow: "COMMIT", title: "Una versión identificable", body: "git commit registra exactamente lo preparado con autor, fecha, mensaje e identificador. No incluye cambios que quedaron fuera del staging." },
+      ],
+    },
+    {
+      key: "week01_publica_primera_entrega_journey", type: "steps", title: "El recorrido local", items: [
+        { key: "week01_publica_primera_entrega_journey_review", title: "Probá el programa", body: "Confirmá la carpeta, los archivos y la ejecución con un nombre antes de iniciar el historial." },
+        { key: "week01_publica_primera_entrega_journey_protect", title: "Definí qué ignorar", body: "Creá .gitignore antes del primer estado para que resultados y secretos no aparezcan como candidatos." },
+        { key: "week01_publica_primera_entrega_journey_init", title: "Iniciá la rama main", body: "git init crea el repositorio local dentro de la carpeta actual; no mueve ni publica archivos." },
+        { key: "week01_publica_primera_entrega_journey_stage", title: "Prepará archivos explícitos", body: "Elegí .gitignore, README.md y los tres archivos JavaScript en lugar de agregar toda la carpeta a ciegas." },
+        { key: "week01_publica_primera_entrega_journey_inspect", title: "Inspeccioná el staging", body: "Revisá nombres, resumen y contenido exacto antes de crear la versión." },
+        { key: "week01_publica_primera_entrega_journey_commit", title: "Confirmá y verificá", body: "Creá el commit, consultá el último registro y comprobá que no queden cambios pendientes." },
+      ],
+    },
+    {
+      key: "week01_publica_primera_entrega_gitignore", type: "code", title: "1 · .gitignore excluye resultados y datos locales", language: "text",
+      code: "node_modules/\n.env\n*.log\nhistorial.txt",
+    },
+    {
+      key: "week01_publica_primera_entrega_readme", type: "code", title: "2 · README.md explica el programa real", language: "markdown",
+      code: "# Programa modular de saludos\n\nRecibe un nombre desde la terminal, muestra un saludo y agrega el resultado a un historial local.\n\n## Ejecutar\n\n```bash\nnode app.js \"Ana Pérez\"\n```\n\n## Resultado esperado\n\nLa terminal muestra el saludo y confirma que `historial.txt` fue actualizado.",
+    },
+    {
+      key: "week01_publica_primera_entrega_preflight", type: "code", title: "3 · Probá e iniciá el repositorio", language: "bash",
+      code: "pwd\nls\nnode app.js \"Ana Pérez\"\ngit init -b main\ngit status --short",
+    },
+    {
+      key: "week01_publica_primera_entrega_untracked", type: "terminal", title: "Antes de preparar: ?? significa no registrado", rows: [
+        { key: "week01_publica_primera_entrega_untracked_command", kind: "command", label: "Comando", value: "git status --short" },
+        { key: "week01_publica_primera_entrega_untracked_ignore", kind: "response", label: "Salida", value: "?? .gitignore" },
+        { key: "week01_publica_primera_entrega_untracked_readme", kind: "response", label: "Salida", value: "?? README.md" },
+        { key: "week01_publica_primera_entrega_untracked_app", kind: "response", label: "Salida", value: "?? app.js" },
+        { key: "week01_publica_primera_entrega_untracked_greeting", kind: "response", label: "Salida", value: "?? saludos.js" },
+        { key: "week01_publica_primera_entrega_untracked_history_module", kind: "response", label: "Salida", value: "?? historial.js" },
+        { key: "week01_publica_primera_entrega_untracked_generated", kind: "prompt", label: "Comprobá", value: "historial.txt no aparece porque .gitignore lo excluye antes del staging." },
+      ],
+    },
+    {
+      key: "week01_publica_primera_entrega_stage", type: "code", title: "4 · Elegí y revisá la próxima versión", language: "bash",
+      code: "git add .gitignore README.md app.js saludos.js historial.js\ngit status --short\ngit diff --cached --stat\ngit diff --cached",
+    },
+    {
+      key: "week01_publica_primera_entrega_staged", type: "terminal", title: "Después de preparar: A significa agregado al staging", rows: [
+        { key: "week01_publica_primera_entrega_staged_command", kind: "command", label: "Comando", value: "git status --short" },
+        { key: "week01_publica_primera_entrega_staged_ignore", kind: "response", label: "Preparado", value: "A  .gitignore" },
+        { key: "week01_publica_primera_entrega_staged_readme", kind: "response", label: "Preparado", value: "A  README.md" },
+        { key: "week01_publica_primera_entrega_staged_app", kind: "response", label: "Preparado", value: "A  app.js" },
+        { key: "week01_publica_primera_entrega_staged_greeting", kind: "response", label: "Preparado", value: "A  saludos.js" },
+        { key: "week01_publica_primera_entrega_staged_history", kind: "response", label: "Preparado", value: "A  historial.js" },
+        { key: "week01_publica_primera_entrega_staged_check", kind: "prompt", label: "Antes de seguir", value: "Sólo estos cinco archivos deben aparecer. historial.txt, .env y node_modules no forman parte del commit." },
+      ],
+    },
+    {
+      key: "week01_publica_primera_entrega_stage_meaning", type: "cards", title: "Leé el staging como una decisión", columns: 2, items: [
+        { key: "week01_publica_primera_entrega_stage_status", eyebrow: "git status --short", title: "Qué está preparado", body: "La columna izquierda describe el staging. A indica un archivo nuevo preparado; ?? indica que todavía no está registrado ni preparado." },
+        { key: "week01_publica_primera_entrega_stage_stat", eyebrow: "git diff --cached --stat", title: "Cuánto entra", body: "Resume archivos y cantidad de líneas. Usalo para detectar rápidamente un archivo inesperado o un cambio demasiado grande." },
+        { key: "week01_publica_primera_entrega_stage_diff", eyebrow: "git diff --cached", title: "Qué contenido exacto entra", body: "Muestra la instantánea que registrará el commit. Leé secretos, datos personales, mensajes temporales y cambios incompletos antes de confirmar." },
+        { key: "week01_publica_primera_entrega_stage_pager", eyebrow: "SI APARECE :", title: "q vuelve a la terminal", body: "Git puede abrir un paginador para una salida larga. Presioná q para cerrarlo: no cancela ni modifica el staging." },
+      ],
+    },
+    {
+      key: "week01_publica_primera_entrega_commit", type: "code", title: "5 · Creá y verificá el primer commit", language: "bash",
+      code: "git commit -m \"Completa programa modular\"\ngit log -1 --oneline\ngit status --short",
+    },
+    {
+      key: "week01_publica_primera_entrega_commit_result", type: "terminal", title: "Resultado que necesitás reconocer", rows: [
+        { key: "week01_publica_primera_entrega_commit_created", kind: "response", label: "Commit", value: "[main <hash>] Completa programa modular" },
+        { key: "week01_publica_primera_entrega_commit_log", kind: "response", label: "git log -1 --oneline", value: "<hash> Completa programa modular" },
+        { key: "week01_publica_primera_entrega_commit_status", kind: "prompt", label: "git status --short", value: "Sin salida: la carpeta y el staging coinciden con el último commit." },
+        { key: "week01_publica_primera_entrega_commit_scope", kind: "prompt", label: "Alcance", value: "La versión existe sólo en tu repositorio local; todavía no hay remoto ni publicación." },
+      ],
+    },
+    {
+      key: "week01_publica_primera_entrega_troubleshooting", type: "cards", title: "Si el recorrido se detiene, conservá tus archivos", columns: 2, items: [
+        { key: "week01_publica_primera_entrega_trouble_folder", eyebrow: "not a git repository", title: "Confirmá la carpeta", body: "Ejecutá pwd y ls, entrá a programa-modular-node y repetí git status. No inicies Git en una carpeta superior sólo para hacer desaparecer el mensaje." },
+        { key: "week01_publica_primera_entrega_trouble_branch", eyebrow: "unknown switch `b`", title: "Usá la alternativa compatible", body: "Ejecutá git init y después git branch -M main. Continuá únicamente cuando pwd y ls confirmen la carpeta del proyecto." },
+        { key: "week01_publica_primera_entrega_trouble_identity", eyebrow: "Author identity unknown", title: "Revisá la configuración anterior", body: "Consultá git config --get user.name y git config --get user.email. Si están vacíos, volvé a la sección de instalación de Git y configurá tu identidad verificable." },
+        { key: "week01_publica_primera_entrega_trouble_secret", eyebrow: "ARCHIVO SENSIBLE PREPARADO", title: "Retiralo sin borrarlo", body: "Usá git restore --staged .env. El archivo permanece en tu computadora; resolvé dónde guardarlo y confirmá que .gitignore lo excluya antes de continuar." },
+        { key: "week01_publica_primera_entrega_trouble_generated", eyebrow: "historial.txt APARECE", title: "Revisá el orden", body: "Creá .gitignore antes del staging. Si ya lo preparaste, usá git restore --staged historial.txt; no necesitás borrar tu historial local." },
+        { key: "week01_publica_primera_entrega_trouble_nothing", eyebrow: "nothing to commit", title: "Consultá el estado", body: "Puede significar que no preparaste cambios o que la versión ya existe. git status --short y git log -1 --oneline permiten distinguir ambos casos." },
+      ],
+    },
+    question,
+  ];
+}
+
+function curateGitHubPublicationSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "15-evidencia-avance");
+  if (!section) throw new Error("No se encontró la sección de publicación remota.");
+  const generator = section.blocks.find((block) => block.type === "generator" && block.key === "week01_publica_primera_entrega_generate_remote");
+  const validator = section.blocks.find((block) => block.type === "validator" && block.activityKey === "week01_publica_primera_entrega_repository_url");
+  const checklist = section.blocks.find((block) => block.type === "checklist" && block.activityKey === "week01_evidencia_avance_checklist");
+  if (!generator || !validator || !checklist) throw new Error("La sección remota perdió sus bloques interactivos estables.");
+
+  section.title = "Publicá y verificá tu entrega";
+  section.summary = "Publicá en GitHub el commit local de programa-modular-node y comprobá, como visitante, que la evidencia sea accesible, comprensible y reproducible.";
+  section.blocks = [
+    {
+      key: "week01_evidencia_avance_objective", type: "callout", tone: "info", eyebrow: "OBJETIVO · DEL COMMIT AL ENLACE", title: "Publicá exactamente la versión que ya revisaste",
+      body: { type: "doc", content: [
+        richParagraph("Partís del commit Completa programa modular creado en la sección anterior. Ahora vas a preparar un destino vacío en GitHub, conectar origin, publicar main y verificar la entrega desde afuera de tu cuenta."),
+        richParagraph("No vuelvas a ejecutar git init, git add ni git commit: si la comprobación inicial no coincide, regresá a la sección anterior antes de publicar."),
+      ] },
+    },
+    {
+      key: "week01_evidencia_avance_journey", type: "steps", title: "Cuatro etapas, una evidencia", items: [
+        { key: "week01_evidencia_avance_journey_create", title: "Creá un destino vacío", body: "En GitHub, usá el nombre programa-modular-node, visibilidad pública y ninguna inicialización automática." },
+        { key: "week01_evidencia_avance_journey_connect", title: "Conectá origin", body: "Copiá la URL HTTPS del repositorio, agregala como remoto y comprobá las direcciones de lectura y envío." },
+        { key: "week01_evidencia_avance_journey_push", title: "Publicá main", body: "Enviá el commit local y establecé el seguimiento de origin/main. Autorizá la operación en el navegador si Git lo solicita." },
+        { key: "week01_evidencia_avance_journey_verify", title: "Miralo como visitante", body: "Compará commit, archivos y README; después abrí la URL raíz en una ventana privada y completá la evidencia." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_local_check", type: "code", title: "1 · Confirmá el punto de partida", language: "bash",
+      code: "git status --short\ngit log -1 --oneline",
+    },
+    {
+      key: "week01_evidencia_avance_local_ready", type: "terminal", title: "Continuá sólo con esta evidencia local", rows: [
+        { key: "week01_evidencia_avance_local_ready_status", kind: "prompt", label: "git status --short", value: "Sin salida: no hay cambios pendientes ni preparados." },
+        { key: "week01_evidencia_avance_local_ready_commit", kind: "response", label: "git log -1 --oneline", value: "<hash> Completa programa modular" },
+        { key: "week01_evidencia_avance_local_ready_stop", kind: "prompt", label: "Si no coincide", value: "No publiques todavía. Volvé a “Guardá una versión con Git” y completá la revisión local." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_repository_settings", type: "cards", title: "2 · Creá el repositorio compatible", columns: 2, items: [
+        { key: "week01_evidencia_avance_repository_name", eyebrow: "NOMBRE", title: "programa-modular-node", body: "Usá el mismo nombre del proyecto. La URL final será fácil de reconocer y el validador podrá comprobarla." },
+        { key: "week01_evidencia_avance_repository_visibility", eyebrow: "VISIBILIDAD", title: "Público", body: "La evidencia debe abrirse sin tu sesión. Si tu institución requiere privacidad, no continúes y consultá al docente." },
+        { key: "week01_evidencia_avance_repository_empty", eyebrow: "INICIALIZACIÓN", title: "Dejá todo sin marcar", body: "No agregues README, .gitignore ni licencia desde GitHub: ya existen localmente y crear otra historia puede provocar un rechazo." },
+        { key: "week01_evidencia_avance_repository_owner", eyebrow: "PROPIETARIO", title: "Revisá tu cuenta", body: "Confirmá que el repositorio se crea en el perfil correcto y copiá la URL HTTPS de su configuración rápida." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_public_warning", type: "callout", tone: "warning", eyebrow: "ANTES DE HACERLO PÚBLICO", title: "El historial también queda expuesto",
+      body: { type: "doc", content: [
+        richParagraph("El repositorio publicará los cinco archivos del commit: .gitignore, README.md, app.js, saludos.js e historial.js. historial.txt, .env, logs y node_modules deben seguir afuera."),
+        richParagraph("Si el commit contiene una contraseña, token, clave privada o dato personal innecesario, detenete. No alcanza con borrar el texto después del push."),
+      ] },
+    },
+    {
+      ...generator,
+      title: "3 · Generá la conexión HTTPS",
+      description: "Pegá la URL HTTPS terminada en /programa-modular-node.git. El generador no publica nada: produce los comandos para agregar y revisar origin.",
+    },
+    {
+      key: "week01_evidencia_avance_remote_ready", type: "terminal", title: "Reconocé el remoto antes del push", rows: [
+        { key: "week01_evidencia_avance_remote_command", kind: "command", label: "Comando", value: "git remote -v" },
+        { key: "week01_evidencia_avance_remote_fetch", kind: "response", label: "Lectura", value: "origin  https://github.com/TU-USUARIO/programa-modular-node.git (fetch)" },
+        { key: "week01_evidencia_avance_remote_push", kind: "response", label: "Envío", value: "origin  https://github.com/TU-USUARIO/programa-modular-node.git (push)" },
+        { key: "week01_evidencia_avance_remote_check", kind: "prompt", label: "Comprobá", value: "Ambas líneas deben usar tu usuario, el mismo repositorio y el protocolo https://." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_first_push", type: "code", title: "4 · Publicá main por primera vez", language: "bash",
+      code: "git push -u origin main",
+    },
+    {
+      key: "week01_evidencia_avance_auth", type: "cards", title: "La autenticación ocurre fuera del comando", columns: 2, items: [
+        { key: "week01_evidencia_avance_auth_browser", eyebrow: "NAVEGADOR", title: "Iniciá sesión y autorizá", body: "Con HTTPS, Git Credential Manager puede abrir una ventana del navegador. Verificá el dominio github.com, completá la autenticación y regresá a la terminal." },
+        { key: "week01_evidencia_avance_auth_command", eyebrow: "TERMINAL", title: "No escribas tu contraseña", body: "El comando sólo contiene origin y main. No pegues contraseñas, tokens ni códigos de recuperación dentro de la URL o del historial de comandos." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_push_result", type: "terminal", title: "El primer push deja una rama seguida", rows: [
+        { key: "week01_evidencia_avance_push_objects", kind: "response", label: "Transferencia", value: "Los objetos se enumeran, comprimen y escriben sin error." },
+        { key: "week01_evidencia_avance_push_branch", kind: "response", label: "Rama remota", value: "main -> main" },
+        { key: "week01_evidencia_avance_push_tracking", kind: "response", label: "Seguimiento", value: "branch 'main' set up to track 'origin/main'." },
+        { key: "week01_evidencia_avance_push_prompt", kind: "prompt", label: "Final", value: "Reaparece el prompt sin rejected, fatal ni error." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_synced_image", type: "image", source: { assetId: "week01_evidencia_avance_image_2" },
+      alt: "El commit Completa programa modular aparece con el mismo identificador en la terminal local y en el repositorio remoto.",
+      caption: "La publicación es correcta cuando Git local y GitHub representan el mismo commit. El identificador exacto será diferente en cada proyecto.",
+    },
+    {
+      key: "week01_evidencia_avance_verify_commands", type: "code", title: "5 · Verificá seguimiento, commit y destino", language: "bash",
+      code: "git status -sb\ngit log -1 --oneline\ngit remote get-url origin",
+    },
+    {
+      key: "week01_evidencia_avance_verified", type: "terminal", title: "Tres resultados que deben contar la misma historia", rows: [
+        { key: "week01_evidencia_avance_verified_tracking", kind: "response", label: "Estado", value: "## main...origin/main" },
+        { key: "week01_evidencia_avance_verified_commit", kind: "response", label: "Commit", value: "<hash> Completa programa modular" },
+        { key: "week01_evidencia_avance_verified_url", kind: "response", label: "Destino", value: "https://github.com/TU-USUARIO/programa-modular-node.git" },
+        { key: "week01_evidencia_avance_verified_ahead", kind: "prompt", label: "Si aparece [ahead 1]", value: "Existe un commit local que todavía no llegó a GitHub. Ejecutá git push y volvé a comprobar." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_visitor", type: "cards", title: "6 · Probalo como visitante y como docente", columns: 2, items: [
+        { key: "week01_evidencia_avance_visitor_root", eyebrow: "ENLACE RAÍZ", title: "Abrí el repositorio completo", body: "Usá https://github.com/TU-USUARIO/programa-modular-node, sin .git y sin /blob/main/archivo. Pegalo en una ventana privada donde no hayas iniciado sesión." },
+        { key: "week01_evidencia_avance_visitor_files", eyebrow: "CINCO ARCHIVOS", title: "Reconocé la versión publicada", body: "Deben aparecer .gitignore, README.md, app.js, saludos.js e historial.js. historial.txt, .env, logs y node_modules no deben estar." },
+        { key: "week01_evidencia_avance_visitor_readme", eyebrow: "README", title: "Repetí la ejecución", body: "La página principal debe explicar node app.js \"Ana Pérez\" y el resultado esperado sin depender de conocimientos que sólo vos tenés." },
+        { key: "week01_evidencia_avance_visitor_commit", eyebrow: "ÚLTIMO COMMIT", title: "Compará mensaje e identificador", body: "GitHub debe mostrar Completa programa modular y el mismo hash abreviado que git log -1 --oneline." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_readme", type: "code", title: "La instrucción mínima debe ser reproducible", language: "markdown",
+      code: "## Ejecutar\n\n```bash\nnode app.js \"Ana Pérez\"\n```\n\nLa terminal muestra el saludo y confirma que el historial local fue actualizado.",
+    },
+    {
+      ...validator,
+      placeholder: "https://github.com/usuario/programa-modular-node",
+      helpText: "Pegá la dirección de la página principal, no la URL .git ni el enlace de un archivo. Después comprobala en una ventana privada.",
+    },
+    {
+      key: "week01_evidencia_avance_troubleshooting", type: "cards", title: "Si el push se detiene, diagnosticá antes de cambiar", columns: 2, items: [
+        { key: "week01_evidencia_avance_trouble_origin", eyebrow: "remote origin already exists", title: "Inspeccioná la conexión existente", body: "Ejecutá git remote -v. Si apunta a otro repositorio, corregila con git remote set-url origin URL; no agregues un segundo origin." },
+        { key: "week01_evidencia_avance_trouble_not_found", eyebrow: "repository not found", title: "Revisá URL, cuenta y acceso", body: "Copiá otra vez la URL HTTPS desde el repositorio correcto y confirmá que autorizaste la cuenta propietaria." },
+        { key: "week01_evidencia_avance_trouble_refspec", eyebrow: "src refspec main", title: "Confirmá rama y commit", body: "Ejecutá git branch --show-current y git log -1 --oneline. Deben existir main y Completa programa modular antes de repetir el push." },
+        { key: "week01_evidencia_avance_trouble_rejected", eyebrow: "push rejected", title: "No fuerces una historia ajena", body: "Si GitHub ya creó README, licencia u otro commit, detenete y creá un repositorio remoto realmente vacío. No uses --force para resolver este ejercicio." },
+      ],
+    },
+    {
+      key: "week01_evidencia_avance_secret", type: "callout", tone: "danger", eyebrow: "SI PUBLICASTE UN SECRETO", title: "Revocalo o rotalo antes de limpiar",
+      body: { type: "doc", content: [
+        richParagraph("Considerá comprometida cualquier contraseña, token o clave que llegó a GitHub. Revocala o rotala de inmediato y avisá al docente para revisar el historial; borrar el texto y hacer otro commit no elimina las copias anteriores."),
+        richParagraph("No intentes reescribir la historia ni forzar el push sin acompañamiento: puede romper referencias y dejar copias accesibles en clones o forks."),
+      ] },
+    },
+    {
+      ...checklist,
+      description: "Marcá cada punto sólo después de observarlo en la terminal, en GitHub y en una ventana privada.",
+      items: [
+        { key: "week01_evidencia_avance_check_1", label: "git status -sb muestra main siguiendo origin/main sin commits pendientes de publicar." },
+        { key: "week01_evidencia_avance_check_2", label: "El repositorio contiene .gitignore, README.md, app.js, saludos.js e historial.js, y no contiene historial.txt." },
+        { key: "week01_evidencia_avance_check_3", label: "El README permite ejecutar node app.js \"Ana Pérez\" y anticipa el resultado." },
+        { key: "week01_evidencia_avance_check_4", label: "GitHub muestra Completa programa modular como último commit y coincide con git log -1 --oneline." },
+        { key: "week01_evidencia_avance_check_5", label: "La URL raíz abre el repositorio completo en una ventana privada sin iniciar sesión." },
+        { key: "week01_evidencia_avance_check_6", label: "Revisé que ningún commit publicado contenga contraseñas, tokens, .env, logs o dependencias instaladas." },
+      ],
+    },
+  ];
+}
+
+function curateWeekClosureSection(allSections) {
+  const section = allSections.find((item) => item.sourceFolder === "14-cierre-glosario");
+  if (!section) throw new Error("No se encontró la sección de cierre de la semana.");
+  const question = section.blocks.find((block) => block.type === "question" && block.activityKey === "week01_cierre_glosario_question");
+  const checklist = section.blocks.find((block) => block.type === "checklist" && block.activityKey === "week01_cierre_glosario_checklist");
+  if (!question || !checklist) throw new Error("El cierre perdió sus actividades estables.");
+
+  section.title = "Lo esencial de esta semana";
+  section.summary = "Reconstruí cómo pasaste de una terminal preparada a un programa modular publicado, comprobá las ideas centrales y elegí qué repasar antes de continuar.";
+  section.blocks = [
+    {
+      key: "week01_cierre_glosario_objective", type: "callout", tone: "info", eyebrow: "CIERRE · RECUPERAR Y COMPROBAR", title: "No necesitás memorizar la semana: necesitás reconstruirla",
+      body: { type: "doc", content: [
+        richParagraph("Esta sección no agrega herramientas. Reúne las decisiones que ya aplicaste en programa-modular-node para que puedas explicar qué ocurrió desde la terminal hasta GitHub."),
+        richParagraph("Leé cada evidencia como una pregunta: ¿la observé, puedo explicarla y sabría dónde buscar si dejara de coincidir?"),
+      ] },
+    },
+    {
+      key: "week01_cierre_glosario_retrieval", type: "rich_text", content: { type: "doc", content: [
+        richParagraph("Antes de mirar la síntesis, cerrá por un momento tus apuntes e intentá nombrar: el comando de ejecución, los tres archivos JavaScript, el último commit y la URL que entregaste."),
+        richParagraph("Después compará tu recuerdo con los bloques siguientes. Una diferencia no es un fracaso: señala exactamente qué conexión conviene recuperar."),
+      ] },
+    },
+    {
+      key: "week01_cierre_glosario_journey", type: "steps", title: "El recorrido que ahora podés reconstruir", items: [
+        { key: "week01_cierre_glosario_journey_environment", title: "Preparaste un entorno observable", body: "Usaste la terminal para reconocer la carpeta y verificaste Node.js, Git y tu cuenta de GitHub antes de depender de ellos." },
+        { key: "week01_cierre_glosario_journey_runtime", title: "Ejecutaste JavaScript con Node.js", body: "Distinguiste el lenguaje del runtime, observaste proceso y argumentos, y comprobaste entradas y salidas concretas." },
+        { key: "week01_cierre_glosario_journey_async", title: "Seguiste el orden de ejecución", body: "Relacionaste call stack, operaciones concurrentes, callbacks y event loop sin asumir que todo ocurre en el orden visual del archivo." },
+        { key: "week01_cierre_glosario_journey_modules", title: "Separaste responsabilidades", body: "app.js coordinó las capacidades públicas de saludos.js e historial.js mediante el contrato de CommonJS." },
+        { key: "week01_cierre_glosario_journey_errors", title: "Investigaste con evidencia", body: "Usaste comando, mensaje, archivo, línea e hipótesis para cambiar una sola causa y repetir la prueba." },
+        { key: "week01_cierre_glosario_journey_git", title: "Guardaste y publicaste una versión", body: "Preparaste cinco archivos, inspeccionaste el commit y comprobaste el mismo resultado localmente y en GitHub." },
+      ],
+    },
+    {
+      key: "week01_cierre_glosario_project_map", type: "code", title: "El proyecto reúne toda la semana", language: "text",
+      code: "programa-modular-node/\n├── .gitignore       ← define qué permanece local\n├── README.md        ← permite repetir la ejecución\n├── app.js           ← valida y coordina\n├── saludos.js       ← crea el saludo\n├── historial.js     ← guarda el resultado\n└── historial.txt    ← se genera localmente y Git lo ignora",
+    },
+    {
+      key: "week01_cierre_glosario_reference", type: "cards", title: "Tu hoja de referencia del proyecto", columns: 2, items: [
+        { key: "week01_cierre_glosario_reference_run", eyebrow: "node app.js \"Ana Pérez\"", title: "Ejecutar con una entrada", body: "Node.js crea un proceso para app.js; el nombre llega en los argumentos, la terminal muestra el saludo y el historial local agrega una línea." },
+        { key: "week01_cierre_glosario_reference_args", eyebrow: "process.argv.slice(2)", title: "Leer los argumentos del usuario", body: "Las dos primeras posiciones identifican Node.js y el archivo. slice(2) conserva la entrada que pertenece al programa." },
+        { key: "week01_cierre_glosario_reference_require", eyebrow: "require(\"./saludos\")", title: "Consumir un contrato local", body: "El prefijo ./ indica un módulo de la carpeta del proyecto. require recibe exactamente lo que ese módulo exporta." },
+        { key: "week01_cierre_glosario_reference_export", eyebrow: "module.exports", title: "Definir la capacidad pública", body: "El módulo decide qué funciones o datos pueden usar otros archivos y mantiene privados sus detalles internos." },
+        { key: "week01_cierre_glosario_reference_status", eyebrow: "git status -sb", title: "Observar carpeta, rama y seguimiento", body: "Resume cambios pendientes y la relación entre main y origin/main antes o después de publicar." },
+        { key: "week01_cierre_glosario_reference_log", eyebrow: "git log -1 --oneline", title: "Identificar la última versión", body: "Muestra el hash abreviado y el mensaje del commit que después comparaste con GitHub." },
+        { key: "week01_cierre_glosario_reference_remote", eyebrow: "git remote -v", title: "Revisar el destino", body: "Permite confirmar a qué repositorio se obtiene y se envía contenido antes de ejecutar un push." },
+        { key: "week01_cierre_glosario_reference_push", eyebrow: "git push", title: "Sincronizar commits", body: "Envía al remoto los commits que todavía existen sólo localmente; no reemplaza la revisión ni la creación del commit." },
+      ],
+    },
+    {
+      key: "week01_cierre_glosario_contrasts", type: "cards", title: "Cinco diferencias que evitan errores de razonamiento", columns: 2, items: [
+        { key: "week01_cierre_glosario_contrast_runtime", eyebrow: "JAVASCRIPT / NODE.JS", title: "Lenguaje y runtime", body: "JavaScript define la sintaxis y las reglas del código. Node.js lo ejecuta fuera del navegador y ofrece APIs como procesos y sistema de archivos." },
+        { key: "week01_cierre_glosario_contrast_event_loop", eyebrow: "CALL STACK / EVENT LOOP", title: "Ejecución y coordinación", body: "El call stack ejecuta JavaScript. El event loop habilita callbacks listos cuando el stack queda libre; no ejecuta dos fragmentos de JavaScript a la vez." },
+        { key: "week01_cierre_glosario_contrast_module", eyebrow: "EXPORTAR / IMPORTAR", title: "Ofrecer y consumir", body: "module.exports define el contrato público de un módulo. require usa ese contrato desde otro archivo; ninguno adivina funciones privadas." },
+        { key: "week01_cierre_glosario_contrast_git", eyebrow: "GIT / GITHUB", title: "Historia local y alojamiento remoto", body: "Git registra e inspecciona versiones en tu computadora. GitHub aloja un repositorio conectado y permite compartir esas versiones." },
+        { key: "week01_cierre_glosario_contrast_error", eyebrow: "MENSAJE / CAUSA", title: "Síntoma e hipótesis", body: "El mensaje informa dónde y cómo falló la ejecución. La causa se establece al reunir contexto, formular una hipótesis y repetir una prueba controlada." },
+      ],
+    },
+    {
+      key: "week01_cierre_glosario_glossary", type: "glossary", title: "Glosario para volver cuando lo necesites", items: [
+        { key: "week01_cierre_glosario_term_runtime", term: "Runtime", definition: "Entorno que ejecuta un lenguaje y ofrece las APIs disponibles. En el proyecto, Node.js es el runtime de JavaScript." },
+        { key: "week01_cierre_glosario_term_process", term: "Proceso", definition: "Instancia de un programa en ejecución, con argumentos, memoria, salida y un código de finalización." },
+        { key: "week01_cierre_glosario_term_argument", term: "Argumento", definition: "Dato escrito después del comando y recibido por el programa mediante process.argv." },
+        { key: "week01_cierre_glosario_term_callback", term: "Callback", definition: "Función entregada a otra operación para que informe un resultado o error cuando corresponda." },
+        { key: "week01_cierre_glosario_term_event_loop", term: "Event loop", definition: "Mecanismo que coordina cuándo una callback lista puede ingresar al call stack." },
+        { key: "week01_cierre_glosario_term_module", term: "Módulo", definition: "Archivo con una responsabilidad definida y un contrato público para colaborar con otros archivos." },
+        { key: "week01_cierre_glosario_term_commonjs", term: "CommonJS", definition: "Sistema de módulos usado en el proyecto mediante require y module.exports." },
+        { key: "week01_cierre_glosario_term_repository", term: "Repositorio", definition: "Carpeta cuya historia, ramas y estado administra Git." },
+        { key: "week01_cierre_glosario_term_staging", term: "Staging", definition: "Selección exacta del contenido que formará el próximo commit." },
+        { key: "week01_cierre_glosario_term_commit", term: "Commit", definition: "Versión identificable del contenido preparado, con autor, fecha, mensaje y hash." },
+        { key: "week01_cierre_glosario_term_remote", term: "Remoto", definition: "Repositorio conectado al repositorio local; origin es el nombre convencional usado en la semana." },
+        { key: "week01_cierre_glosario_term_push", term: "Push", definition: "Envío de commits locales hacia una rama del repositorio remoto." },
+      ],
+    },
+    {
+      key: "week01_cierre_glosario_revisit", type: "cards", title: "Si una evidencia no aparece, repasá sólo lo necesario", columns: 2, items: [
+        { key: "week01_cierre_glosario_revisit_environment", eyebrow: "COMANDO NO RECONOCIDO", title: "Terminal e instalaciones", body: "Volvé a “Conocé la terminal”, “Instalá Node.js” o “Instalá Git”. Buscá la carpeta correcta y las respuestas de los comandos de versión." },
+        { key: "week01_cierre_glosario_revisit_runtime", eyebrow: "ENTRADA O SALIDA INESPERADA", title: "Runtime y programa modular", body: "Revisá process.argv, el contrato de ejecución y la responsabilidad de app.js. Repetí una entrada válida y otra sin nombre." },
+        { key: "week01_cierre_glosario_revisit_event_loop", eyebrow: "ORDEN DIFÍCIL DE PREDECIR", title: "Event loop", body: "Volvé a seguir call stack, operación concurrente y cola de callbacks. Escribí el orden antes de ejecutar el ejemplo." },
+        { key: "week01_cierre_glosario_revisit_modules", eyebrow: "MODULE_NOT_FOUND O EXPORTACIÓN AUSENTE", title: "Módulos y errores frecuentes", body: "Confirmá ./, nombre del archivo y module.exports. Registrá el primer mensaje útil y cambiá una sola causa." },
+        { key: "week01_cierre_glosario_revisit_git", eyebrow: "LOCAL Y GITHUB NO COINCIDEN", title: "Git local y publicación", body: "Compará git status -sb, git log -1 --oneline y la página principal del repositorio antes de repetir git push." },
+      ],
+    },
+    question,
+    {
+      ...checklist,
+      description: "Esta lista es opcional y sirve para decidir qué repasar. Marcá únicamente evidencias que hayas observado o explicado sin consultar la respuesta.",
+      items: [
+        { key: "week01_cierre_glosario_check_1", label: "Ejecuté node app.js \"Ana Pérez\" y expliqué de dónde obtiene el programa ese nombre." },
+        { key: "week01_cierre_glosario_check_2", label: "Identifiqué qué coordina app.js y qué contratos ofrecen saludos.js e historial.js." },
+        { key: "week01_cierre_glosario_check_3", label: "Predije cuándo una callback puede volver al call stack y reconocí qué operación podría bloquearlo." },
+        { key: "week01_cierre_glosario_check_4", label: "Usé el mensaje, archivo y línea de un error para formular y probar una hipótesis concreta." },
+        { key: "week01_cierre_glosario_check_5", label: "Comparé estado, último commit y repositorio público hasta comprobar la misma versión local y remota." },
+      ],
+    },
+    {
+      key: "week01_cierre_glosario_completion", type: "callout", tone: "success", eyebrow: "BASE DE LA SEMANA 1", title: "Conservá un punto de partida que puedas volver a comprobar",
+      body: { type: "doc", content: [
+        richParagraph("Si resolviste correctamente la actividad y las evidencias coinciden, ya construiste una base concreta: programa-modular-node, su historial local y una URL verificable."),
+        richParagraph("Guardá la carpeta y el enlace. Si algún punto opcional quedó pendiente, usá la ruta de repaso correspondiente; continuar no exige fingir que todo fue igual de fácil."),
+      ] },
+    },
+  ];
+}
+
+function blockText(block) {
+  if (block.type !== "rich_text" && block.type !== "callout") return "";
+  const value = block.type === "callout" ? block.body : block.content;
+  const collect = (node) => node?.text || (node?.content || []).map(collect).join(" ");
+  return clean(collect(value));
+}
+
+function specialInteractiveBlocks(folder, sourceKey, key) {
+  const question = questionFor(folder, sourceKey, key);
+  const blocks = question ? [question] : [];
+  if (folder === "04-instala-nodejs") blocks.push(
+    { key: key("validate_node"), type: "validator", activityKey: `${sourceKey}_node_version`, required: true, label: "Versión instalada de Node.js", placeholder: "v24.0.0", helpText: "Pegá la respuesta completa de node --version.", rule: { kind: "semantic_version" } },
+    { key: key("validate_npm"), type: "validator", activityKey: `${sourceKey}_npm_version`, required: true, label: "Versión instalada de npm", placeholder: "11.0.0", helpText: "Pegá la respuesta completa de npm --version.", rule: { kind: "semantic_version" } },
+  );
+  if (folder === "05-instala-git") blocks.push(
+    { key: key("validate_git"), type: "validator", activityKey: `${sourceKey}_git_version`, required: true, label: "Resultado de git --version", placeholder: "git version 2.50.0", helpText: "La versión exacta puede ser diferente.", rule: { kind: "git_version" } },
+    { key: key("generate_git_config"), type: "generator", title: "Generá tu configuración de Git", description: "Usá tu correo verificado o el noreply provisto por GitHub.", variables: [{ key: "student_name", label: "Nombre real", inputType: "text", required: true }, { key: "student_email", label: "Correo de commits", inputType: "email", required: true }], template: 'git config --global user.name "{{student_name}}"\ngit config --global user.email "{{student_email}}"\ngit config --global init.defaultBranch main', language: "bash" },
+  );
+  if (folder === "06-crea-cuenta-github") blocks.push({ key: key("validate_github"), type: "validator", activityKey: `${sourceKey}_github_username`, required: true, label: "Nombre de usuario de GitHub", placeholder: "tu-usuario", rule: { kind: "github_username" } });
+  if (folder === "07-publica-primera-entrega") blocks.push(
+    { key: key("validate_repository"), type: "validator", activityKey: `${sourceKey}_repository_url`, required: true, label: "URL HTTPS del repositorio", placeholder: "https://github.com/usuario/programa-modular-node.git", rule: { kind: "github_repository_url", repositoryName: "programa-modular-node" } },
+    { key: key("generate_remote"), type: "generator", title: "Generá el comando para conectar el remoto", variables: [{ key: "repository_url", label: "URL del repositorio", inputType: "url", required: true }], template: "git remote add origin {{repository_url}}\ngit remote -v", language: "bash" },
+  );
+  return blocks;
+}
+
+function questionFor(folder, sourceKey, key) {
+  const definitions = {
+    "03-conoce-la-terminal": { kind: "single", prompt: "En `PS C:\\Curso> node app.js`, ¿qué parte escribís vos?", options: [["prompt", "PS C:\\Curso>"], ["command", "node app.js"], ["result", "La respuesta que aparece después"]], correct: ["command"] },
+    "08-que-hace-backend": { kind: "multiple", prompt: "¿Cuáles son responsabilidades propias del back end?", options: [["form", "Mostrar los campos de un formulario"], ["validate", "Validar permisos y reglas"], ["save", "Registrar una reserva"], ["style", "Elegir el color del botón"]], correct: ["validate", "save"] },
+    "09-runtime-nodejs": { kind: "boolean", prompt: "`document` está disponible de forma predeterminada al ejecutar un archivo con Node.js.", options: [["true", "Verdadero"], ["false", "Falso"]], correct: ["false"] },
+    "10-event-loop": { kind: "single", prompt: "¿En qué orden se imprimen los valores?", code: 'console.log("A");\nsetTimeout(() => console.log("B"), 0);\nconsole.log("C");', options: [["abc", "A, B, C"], ["acb", "A, C, B"], ["cab", "C, A, B"]], correct: ["acb"] },
+    "11-modulos": { kind: "single", prompt: "Si `operaciones.js` está junto a `app.js`, ¿qué ruta lo importa correctamente?", options: [["relative", 'require("./operaciones")'], ["package", 'require("operaciones")'], ["parent", 'require("../operaciones")']], correct: ["relative"] },
+    "13-errores-frecuentes": { kind: "single", prompt: "`require(\"operaciones\")` falla aunque `operaciones.js` está junto a `app.js`. ¿Qué revisarías primero?", options: [["dot", "Agregar ./ a la ruta"], ["reinstall", "Reinstalar Node.js"], ["rename", "Cambiar el nombre de app.js"]], correct: ["dot"] },
+    "07-publica-primera-entrega": { kind: "single", prompt: "¿Qué registra `git commit`?", options: [["snapshot", "Una versión identificable de los cambios preparados"], ["upload", "La publicación automática en GitHub"], ["install", "La instalación de las dependencias del proyecto"]], correct: ["snapshot"] },
+    "14-cierre-glosario": { kind: "multiple", prompt: "Seleccioná las relaciones correctas.", options: [["runtime", "Node.js es un runtime para JavaScript"], ["github", "GitHub reemplaza a Git en la computadora"], ["commit", "Un commit registra una versión del proyecto"], ["module", "Un módulo ayuda a separar responsabilidades"]], correct: ["runtime", "commit", "module"] },
+  };
+  const definition = definitions[folder];
+  if (!definition) return null;
+  return { key: key("question"), type: "question", activityKey: `${sourceKey}_question`, required: true, questionKind: definition.kind, prompt: definition.prompt, ...(definition.code ? { code: definition.code } : {}), options: definition.options.map(([optionKey, label]) => ({ key: optionKey, label, code: false })), correctOptionKeys: definition.correct };
+}
+
+function curateSourceHtml(html) {
+  return html
+    .replaceAll("entrega-semana-1", "programa-modular-node")
+    .replaceAll("Entrega semana 1 Programa de consola desarrollado con Node.js.", "Programa modular de saludos desarrollado con Node.js.");
+}
+
+function calloutTone(eyebrow, title) { const value = `${eyebrow} ${title}`.toLowerCase(); return /error|secreto|no funciona|problema|evit/.test(value) ? "warning" : /complet|listo|final/.test(value) ? "success" : "info"; }
+function textContent(text) { return text ? [{ type: "text", text }] : []; }
+function inferLanguage(value) { return /(?:git |npm |node |mkdir |cd )/.test(value) ? "bash" : /(?:const |let |require\(|console\.)/.test(value) ? "javascript" : "text"; }
+function withoutNumber(value) { return value.replace(/^\d+(?:\.\d+)*\s*[·:.)-]?\s*/, "").trim(); }
+function uniqueKey(value, used) { const base = value.toLowerCase().replace(/[^a-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 72); let candidate = base; let suffix = 2; while (used.has(candidate)) candidate = `${base.slice(0, 70)}_${suffix++}`; used.add(candidate); return candidate; }
+function clean(value) { return String(value || "").replace(/\s+/g, " ").trim(); }
+function cleanInline(value) { return String(value || "").replace(/\s+/g, " "); }
+function cleanWithChildSpacing(element) { return element ? clean([...element.childNodes].map((node) => node.textContent).join(" ")) : ""; }

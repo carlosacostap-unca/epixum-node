@@ -15,7 +15,16 @@
     "mcp:pocketbase:smoke": "node mcp/pocketbase/smoke.mjs",
     "schema:inspect": "node scripts/pocketbase/inspect-schema.mjs",
     "schema:cohorts": "node scripts/pocketbase/setup-cohort-schema.mjs",
+    "schema:week-zero": "node scripts/pocketbase/setup-week-zero-schema.mjs",
     "schema:assessment": "node scripts/pocketbase/setup-javascript-assessment-schema.mjs",
+    "schema:content": "node scripts/pocketbase/setup-content-schema.mjs",
+    "schema:content:verify": "node scripts/pocketbase/verify-content-access.mjs",
+    "content:manifest:week1": "node scripts/content/build-week1-manifest.mjs",
+    "content:import:week1": "node scripts/content/import-week1.mjs",
+    "content:update:week1": "node scripts/content/update-week1-content.mjs",
+    "content:verify:week1-assets": "node scripts/content/verify-week1-assets.mjs",
+    "content:repair:week1-assets": "node scripts/content/repair-week1-assets.mjs",
+    "content:base:week": "node scripts/content/create-week-base.mjs",
     "schema:enrollment-requests": "node scripts/pocketbase/setup-enrollment-request-schema.mjs",
     "test:assessment:e2e": "node scripts/pocketbase/e2e-assessment-routes.mjs",
     "test:enrollment-requests:e2e": "node scripts/pocketbase/e2e-enrollment-request-routes.mjs",
@@ -23,7 +32,7 @@
     "quality:performance": "node scripts/quality/measure-render-times.mjs",
     "schema:harden": "node scripts/pocketbase/harden-cohort-rules.mjs",
     "migrate:cohorts": "node scripts/pocketbase/migrate-cohorts.mjs",
-    "test:cohorts": "node --test scripts/pocketbase/*.test.mjs lib/cohorts/*.test.ts",
+    "test:cohorts": "node --test scripts/pocketbase/*.test.mjs scripts/content/*.test.mjs lib/cohorts/*.test.ts lib/content/*.test.ts",
     "test:ui": "vitest run"
   },
   "dependencies": {
@@ -43,6 +52,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@fission-ai/openspec": "^1.7.0",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/jest-dom": "^7.0.0",

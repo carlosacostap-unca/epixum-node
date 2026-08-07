@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { getBreadcrumbs, getCohortDestination, getNavigationItems, isNavigationItemActive } from "./navigation";
+import { getBreadcrumbs, getCohortDestination, getNavigationItems, isFocusedLearningPath, isNavigationItemActive } from "./navigation";
 
 const weekly = { id: "abcdefghijklmno", mode: "weekly" as const };
 const historical = { id: "pqrstuvwxyzabcd", mode: "sprints_and_teams" as const };
@@ -45,13 +45,27 @@ describe("role navigation", () => {
     expect(ids).toEqual(expect.arrayContaining(["home", "content", "inquiries"]));
   });
 
-  it("uses the cohort root as a safe switch destination", () => {
+  it("uses role-specific safe switch destinations", () => {
     expect(getCohortDestination(weekly)).toBe("/cohorts/abcdefghijklmno");
+    expect(getCohortDestination(weekly, "docente")).toBe("/cohorts/abcdefghijklmno/dashboard");
+    expect(getCohortDestination(weekly, "admin")).toBe("/cohorts/abcdefghijklmno/dashboard");
+  });
+
+  it("recognizes only canonical section readers as focused learning routes", () => {
+    expect(isFocusedLearningPath("/cohorts/cohort/weeks/week/content/section")).toBe(true);
+    expect(isFocusedLearningPath("/cohorts/cohort/weeks/week/content/section/")).toBe(true);
+    expect(isFocusedLearningPath("/cohorts/cohort/weeks/week?section=content")).toBe(false);
+    expect(isFocusedLearningPath("/cohorts/cohort/weeks/week/content/manage")).toBe(false);
   });
 
   it("builds human-readable breadcrumbs without record ids", () => {
     const breadcrumbs = getBreadcrumbs("/cohorts/abcdefghijklmno/weeks/1234567890abc", "Node Cohorte 6");
     expect(breadcrumbs.map(item => item.label)).toEqual(["Inicio", "Node Cohorte 6", "Semanas"]);
     expect(breadcrumbs[1].href).toBe("/cohorts/abcdefghijklmno");
+  });
+
+  it("labels teacher attention and student overview breadcrumbs", () => {
+    expect(getBreadcrumbs("/staff/attention").map(item => item.label)).toEqual(["Inicio", "Equipo docente", "Atención docente"]);
+    expect(getBreadcrumbs("/cohorts/abcdefghijklmno/students/student123456789", "Node Cohorte 6").map(item => item.label)).toEqual(["Inicio", "Node Cohorte 6", "Estudiantes"]);
   });
 });

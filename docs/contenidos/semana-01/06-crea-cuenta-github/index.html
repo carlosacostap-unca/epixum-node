@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Guía para crear, verificar y proteger una cuenta de GitHub para la cursada." />
+    <title>Creá tu cuenta de GitHub | Semana 1</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#inicio" aria-label="Ir al inicio"><span class="brand-mark">N</span><span>Nodera</span></a>
+      <div class="course-title"><span>DESARROLLO BACK END CON NODE.JS</span><strong>Semana 1</strong></div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <p class="eyebrow"><span>02.4</span> PREPARACIÓN DESDE CERO</p>
+        <div class="hero-grid">
+          <div>
+            <h1>Creá tu cuenta de <em>GitHub</em></h1>
+            <p class="lead">Guardá una copia de tus repositorios en Internet y obtené enlaces que puedas abrir, respaldar y compartir como entrega.</p>
+          </div>
+          <aside class="definition-card github-card">
+            <span>PARA COMENZAR</span>
+            <dl>
+              <div><dt>Correo</dt><dd>Activo y verificable.</dd></div>
+              <div><dt>Usuario</dt><dd>Público y reconocible.</dd></div>
+              <div><dt>Contraseña</dt><dd>Larga, única y privada.</dd></div>
+            </dl>
+          </aside>
+        </div>
+        <aside class="before-start security-first">
+          <strong>Antes de crear la cuenta</strong>
+          <p>Tené abierto tu correo en otra pestaña. Elegí una contraseña distinta de la que usás en el campus, el correo o las redes sociales. No la compartas con docentes ni compañeros.</p>
+        </aside>
+      </section>
+
+      <nav class="step-nav five" aria-label="Pasos para preparar la cuenta">
+        <a href="#registro"><span>01</span><b>Registrate</b><small>Datos básicos</small></a>
+        <a href="#verificacion"><span>02</span><b>Verificá</b><small>Correo electrónico</small></a>
+        <a href="#perfil"><span>03</span><b>Confirmá</b><small>Tu perfil público</small></a>
+        <a href="#seguridad"><span>04</span><b>Protegé</b><small>Acceso a la cuenta</small></a>
+        <a href="#relacion"><span>05</span><b>Relacioná</b><small>Git y GitHub</small></a>
+      </nav>
+
+      <article class="lesson">
+        <section id="registro" class="step-section">
+          <div class="step-index">01</div>
+          <div class="step-body">
+            <p class="section-label">CREACIÓN DE LA CUENTA</p>
+            <h2>Completá el registro</h2>
+            <p>Entrá en <a href="https://github.com/signup" target="_blank" rel="noreferrer">github.com/signup ↗</a>. El diseño puede cambiar, pero vas a necesitar estos elementos:</p>
+            <div class="account-steps">
+              <article><span>01</span><strong>Correo electrónico</strong><p>Usá una dirección activa que puedas verificar y recuperar.</p></article>
+              <article><span>02</span><strong>Contraseña segura</strong><p>Creá una contraseña larga y única. Podés guardarla en un administrador de contraseñas.</p></article>
+              <article><span>03</span><strong>Nombre de usuario</strong><p>Será público y formará parte de tus enlaces. Elegí uno fácil de reconocer.</p></article>
+              <article><span>04</span><strong>Preferencias</strong><p>Podés omitir comunicaciones promocionales o personalizaciones opcionales.</p></article>
+            </div>
+            <figure>
+              <img src="github-registro-cuenta.png" alt="Captura simulada de un formulario de GitHub con correo, contraseña y nombre de usuario." />
+              <figcaption><span>01</span><p><strong>El nombre de usuario se verá en tus entregas.</strong> Evitá incluir documento, fecha de nacimiento, teléfono u otros datos personales.</p></figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section id="verificacion" class="step-section">
+          <div class="step-index">02</div>
+          <div class="step-body">
+            <p class="section-label">CONFIRMACIÓN DE IDENTIDAD</p>
+            <h2>Verificá tu correo</h2>
+            <p>GitHub enviará un mensaje a la dirección registrada. Abrilo, copiá el código o seguí el enlace de confirmación y regresá al navegador.</p>
+            <div class="mail-flow">
+              <article><span>1</span><strong>Abrí tu correo</strong><small>Buscá el mensaje de GitHub.</small></article><i>→</i>
+              <article><span>2</span><strong>Usá tu código</strong><small>No uses el de una captura.</small></article><i>→</i>
+              <article><span>3</span><strong>Volvé a GitHub</strong><small>Confirmá que terminó.</small></article>
+            </div>
+            <figure>
+              <img src="github-verificacion-correo.png" alt="Captura simulada de una pantalla para introducir un código de verificación enviado por correo." />
+              <figcaption><span>02</span><p><strong>El código de la imagen es ficticio.</strong> Usá únicamente el que llegue a tu propio correo y no lo compartas.</p></figcaption>
+            </figure>
+            <aside class="help-note"><strong>¿El mensaje no llega?</strong><p>Esperá unos minutos, revisá spam o correo no deseado y comprobá que la dirección esté bien escrita.</p></aside>
+            <aside class="security-alert"><span>!</span><div><strong>Protegé tus datos de acceso</strong><p>Si recibís un mensaje inesperado que pide tu contraseña o un código, no respondas ni abras enlaces. Iniciá siempre desde <code>github.com</code>.</p></div></aside>
+          </div>
+        </section>
+
+        <section id="perfil" class="step-section">
+          <div class="step-index">03</div>
+          <div class="step-body">
+            <p class="section-label">ENLACE PÚBLICO</p>
+            <h2>Confirmá que la cuenta esté lista</h2>
+            <p>Una vez verificado el correo, abrí tu perfil desde el menú de usuario. La dirección tendrá una forma similar a <code>github.com/TU-USUARIO</code>.</p>
+            <section class="profile-builder" aria-labelledby="profile-title">
+              <div><span>COMPROBÁ TU ENLACE</span><h3 id="profile-title">Escribí tu usuario de GitHub</h3><p>No ingreses el correo ni la contraseña.</p></div>
+              <label>Nombre de usuario<input id="github-user" type="text" placeholder="ana-dev" autocomplete="off" spellcheck="false" /></label>
+              <div class="profile-url"><code id="profile-url">https://github.com/TU-USUARIO</code><button id="copy-profile" type="button" disabled>COPIAR</button></div>
+              <p id="profile-feedback" class="profile-feedback" role="status">Usá solamente letras, números y guiones simples.</p>
+            </section>
+            <figure>
+              <img src="github-cuenta-lista.png" alt="Captura simulada de una cuenta preparada, con correo verificado y enlace al perfil." />
+              <figcaption><span>03</span><p><strong>Tu perfil puede estar vacío.</strong> No necesitás agregar foto, biografía, ubicación ni redes sociales para completar la cursada.</p></figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section id="seguridad" class="step-section security-section">
+          <div class="step-index">04</div>
+          <div class="step-body">
+            <p class="section-label">SEGUNDA COMPROBACIÓN</p>
+            <h2>Protegé el acceso</h2>
+            <p>Si GitHub ofrece configurar verificación en dos pasos, es recomendable activarla. Este mecanismo solicita una segunda comprobación además de la contraseña.</p>
+            <div class="security-cards">
+              <article><span>2FA</span><strong>Activá dos factores</strong><p>Una contraseña filtrada no alcanzará para entrar a la cuenta.</p></article>
+              <article><span>RC</span><strong>Guardá la recuperación</strong><p>Conservá los códigos de recuperación en un lugar privado y accesible.</p></article>
+              <article><span>✕</span><strong>No compartas secretos</strong><p>Ninguna entrega debe contener contraseñas, códigos o capturas de seguridad.</p></article>
+            </div>
+            <p class="security-reminder"><strong>Regla simple:</strong> docentes y compañeros nunca necesitan tu contraseña, código de verificación ni código de recuperación.</p>
+          </div>
+        </section>
+
+        <section id="relacion" class="step-section">
+          <div class="step-index">05</div>
+          <div class="step-body">
+            <p class="section-label">AUTORÍA DE LOS COMMITS</p>
+            <h2>Relacioná el correo con Git</h2>
+            <p>El correo configurado en Git conviene que sea uno de los correos agregados y verificados en GitHub. Así la plataforma puede asociar los commits con tu cuenta.</p>
+            <div class="code-window">
+              <div class="code-top"><span>Correo configurado en Git</span><button id="copy-command" type="button">COPIAR</button></div>
+              <pre><code id="email-command">git config --global user.email</code></pre>
+              <p id="copy-status" role="status"></p>
+            </div>
+            <div class="relationship">
+              <article><span>GIT · EN TU COMPUTADORA</span><strong>Registra versiones</strong><p>Observa cambios, prepara archivos y crea puntos guardados llamados commits.</p></article>
+              <div class="bridge" aria-hidden="true"><i></i><b>correo verificado</b><i></i></div>
+              <article><span>GITHUB · EN INTERNET</span><strong>Guarda el repositorio remoto</strong><p>Recibe los commits para respaldar el proyecto y compartir el enlace de entrega.</p></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="checkpoint" aria-labelledby="checkpoint-title">
+          <div class="checkpoint-head">
+            <div><span>LISTA DE CONTROL DE GITHUB</span><h2 id="checkpoint-title">Confirmá que tu cuenta está lista</h2></div>
+            <div class="meter"><i id="checkpoint-progress"></i></div>
+          </div>
+          <div class="checklist">
+            <label><input type="checkbox" data-check="0" /><span>✓</span>Puedo iniciar sesión por mi cuenta.</label>
+            <label><input type="checkbox" data-check="1" /><span>✓</span>Mi correo está verificado.</label>
+            <label><input type="checkbox" data-check="2" /><span>✓</span>Conozco mi nombre de usuario.</label>
+            <label><input type="checkbox" data-check="3" /><span>✓</span>Puedo abrir y copiar el enlace de mi perfil.</label>
+          </div>
+          <div class="checkpoint-foot"><strong id="checkpoint-count">0 de 4 pasos completados</strong><button id="reset-progress" type="button">Reiniciar lista</button></div>
+          <div id="completion" class="completion" hidden><span>✓</span><div><strong>Cuenta preparada</strong><p>Ya podés continuar con la publicación de tu primera entrega.</p></div></div>
+        </section>
+      </article>
+    </main>
+
+    <footer><span>NODERA</span><p>Semana 1 · Preparación desde cero · Cuenta de GitHub</p></footer>
+  </body>
+</html>

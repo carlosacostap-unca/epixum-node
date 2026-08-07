@@ -1,4 +1,4 @@
-import { getAssignment, getAssignmentCohortId, getLinks, getDeliveries, getUserDelivery, getCohortStudents } from "@/lib/data";
+import { getAssignment, getAssignmentCohortId, getLinks, getDeliveries, getUserDelivery, getCohortStudents, getSprint } from "@/lib/data";
 import { Assignment, Link as LinkType, Delivery, Inquiry, User } from "@/types";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/pocketbase-server";
@@ -10,6 +10,7 @@ import InquiryList from "@/components/inquiries/InquiryList";
 import { Badge, Card, CardContent, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { requireCohortAccess } from "@/lib/cohorts/access";
 import { appendSearchParams, cohortPath } from "@/lib/cohorts/route-compatibility";
+import { getWeek } from "@/lib/cohorts/weeks";
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,8 @@ export default async function AssignmentPage({ params, searchParams }: { params:
   let deliveries: Delivery[] = [];
   let students: User[] = [];
   let userDelivery: Delivery | null = null;
+  let periodId = "";
+  let periodEndDate: string | undefined;
   
   try {
     assignment = await getAssignment(id);
@@ -32,6 +35,9 @@ export default async function AssignmentPage({ params, searchParams }: { params:
     if (requestedCohortId && requestedCohortId !== resolvedCohortId) return notFound();
     links = await getLinks(id, 'assignment');
     inquiries = await getInquiries({ cohortId: resolvedCohortId, assignmentId: id });
+    periodId = assignment.week || assignment.sprint || "";
+    if (assignment.week) periodEndDate = (await getWeek(resolvedCohortId, assignment.week)).week.endDate;
+    if (assignment.sprint) periodEndDate = (await getSprint(assignment.sprint, resolvedCohortId))?.endDate;
     
     if (user) {
         if (user.role === 'docente' || user.role === 'admin') {
@@ -53,7 +59,7 @@ export default async function AssignmentPage({ params, searchParams }: { params:
     return (
         <div className="container mx-auto p-8 min-h-screen space-y-8">
             <AssignmentDetailsManagement user={user} cohortId={requestedCohortId!} assignment={assignment} links={links} inquiries={inquiries} />
-            <TeacherDeliveries deliveries={deliveries} students={students} assignmentId={assignment.id} />
+            <TeacherDeliveries deliveries={deliveries} students={students} assignmentId={assignment.id} cohortId={resolvedCohortId} periodId={periodId} periodEndDate={periodEndDate} focusStudentId={typeof query.student === "string" ? query.student : undefined} />
         </div>
     );
   }

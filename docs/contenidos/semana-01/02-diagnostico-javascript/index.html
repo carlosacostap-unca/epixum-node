@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Diagnóstico interactivo de fundamentos de JavaScript - Semana 1." />
+    <title>Diagnóstico de JavaScript | Semana 1</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#inicio" aria-label="Ir al inicio">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span>Nodera</span>
+      </a>
+      <div class="course-title">
+        <span>DESARROLLO BACK END CON NODE.JS</span>
+        <strong>Semana 1</strong>
+      </div>
+    </header>
+
+    <main id="inicio">
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow"><span>01</span> PUNTO DE PARTIDA</p>
+        <div class="intro-grid">
+          <div>
+            <h1 id="page-title">Diagnóstico de <em>JavaScript</em></h1>
+            <p class="lead">
+              Este diagnóstico no es un examen y no lleva nota. El objetivo es reconocer qué
+              contenidos de Programación con JavaScript conviene repasar antes de avanzar.
+            </p>
+          </div>
+          <aside class="intro-note">
+            <span>ANTES DE EMPEZAR</span>
+            <strong>Respondé sin buscar las soluciones.</strong>
+            <p>Al finalizar vas a recibir una devolución por tema y una explicación de cada respuesta.</p>
+          </aside>
+        </div>
+        <div class="topic-strip" aria-label="Temas evaluados">
+          <span>Variables y tipos</span>
+          <span>Control de flujo</span>
+          <span>Funciones</span>
+          <span>Arreglos y objetos</span>
+          <span>Asincronismo</span>
+        </div>
+      </section>
+
+      <section class="quiz-shell" aria-labelledby="quiz-heading">
+        <h2 id="quiz-heading" class="sr-only">Preguntas del diagnóstico</h2>
+
+        <div id="quiz-view">
+          <div class="quiz-status">
+            <div>
+              <span id="question-count">PREGUNTA 1 DE 10</span>
+              <strong id="question-topic">Variables y tipos</strong>
+            </div>
+            <span id="answered-count">0 respondidas</span>
+          </div>
+          <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+
+          <form id="quiz-form">
+            <fieldset class="question-card">
+              <legend id="question-prompt"></legend>
+              <pre id="question-code" hidden><code></code></pre>
+              <div id="options" class="options"></div>
+            </fieldset>
+
+            <nav id="question-nav" class="question-nav" aria-label="Navegación entre preguntas"></nav>
+
+            <div class="quiz-actions">
+              <button id="previous" class="button secondary" type="button">← Anterior</button>
+              <button id="next" class="button primary" type="button">Siguiente →</button>
+              <button id="finish" class="button primary" type="submit" hidden>Ver mis resultados →</button>
+            </div>
+            <p id="warning" class="warning" role="status"></p>
+          </form>
+        </div>
+
+        <section id="results" class="results" aria-live="polite" hidden>
+          <div id="result-hero" class="result-hero">
+            <div class="score-ring"><strong id="score">0</strong><span>de 10</span></div>
+            <div>
+              <span class="result-kicker">RESULTADO DEL DIAGNÓSTICO</span>
+              <h2 id="result-level"></h2>
+              <p id="result-copy"></p>
+            </div>
+          </div>
+
+          <div id="topic-results" class="topic-results"></div>
+
+          <div class="recommendation">
+            <span>PRÓXIMO PASO RECOMENDADO</span>
+            <strong id="recommendation-title"></strong>
+            <p id="recommendation-copy"></p>
+          </div>
+
+          <div class="review-heading-main">
+            <div>
+              <span>DEVOLUCIÓN</span>
+              <h2>Revisión de respuestas</h2>
+            </div>
+            <button class="button print-button" type="button" onclick="window.print()">Imprimir revisión</button>
+          </div>
+          <div id="answer-review" class="answer-review"></div>
+          <button id="restart" class="button restart" type="button">Volver a realizar el diagnóstico ↻</button>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      <span>NODERA</span>
+      <p>Semana 1 · Diagnóstico de fundamentos de JavaScript</p>
+    </footer>
+  </body>
+</html>

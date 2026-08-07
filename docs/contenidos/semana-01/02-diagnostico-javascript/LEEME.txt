@@ -1,0 +1,15 @@
+DIAGNÓSTICO DE JAVASCRIPT - SEMANA 1
+
+Cómo usar este sitio:
+
+1. Descomprimí el archivo ZIP.
+2. Abrí index.html con cualquier navegador moderno.
+3. No requiere conexión a Internet, instalación ni servidor.
+
+Archivos incluidos:
+
+- index.html: estructura y contenido del sitio.
+- styles.css: diseño visual y adaptación a pantallas pequeñas.
+- script.js: preguntas, navegación, resultados y devolución.
+
+Para compartirlo, enviá la carpeta completa o el archivo ZIP original.

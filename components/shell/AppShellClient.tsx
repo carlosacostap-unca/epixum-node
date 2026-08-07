@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import pb from "@/lib/pocketbase";
 import { cn } from "@/lib/cn";
-import { getBreadcrumbs, getCohortDestination, getNavigationItems, isNavigationItemActive, type NavigationIcon, type NavigationItem } from "@/lib/navigation";
+import { getBreadcrumbs, getCohortDestination, getNavigationItems, isFocusedLearningPath, isNavigationItemActive, type NavigationIcon, type NavigationItem } from "@/lib/navigation";
 import type { Cohort, User } from "@/types";
 import { Badge, Button, Menu, MenuItem, ToastProvider } from "@/components/ui";
 
@@ -21,6 +21,7 @@ export default function AppShellClient({ user, cohorts, children }: { user: User
   const navigation = useMemo(() => getNavigationItems({ role: user.role, cohort: activeCohort, showCohorts: canSwitchCohorts }), [user.role, activeCohort, canSwitchCohorts]);
   const breadcrumbs = getBreadcrumbs(pathname, activeCohort?.name);
   const mobileItems = navigation.filter(item => item.mobile).slice(0, 5);
+  const focusedLearning = isFocusedLearningPath(pathname);
 
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
@@ -42,7 +43,7 @@ export default function AppShellClient({ user, cohorts, children }: { user: User
     <div className="min-h-screen bg-background lg:pl-72">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r bg-surface lg:flex">
         <Brand />
-        {canSwitchCohorts && <div className="border-b p-4"><CohortSelect cohorts={cohorts} activeId={activeCohort?.id} onChange={id => router.push(getCohortDestination({ id }))} /></div>}
+        {canSwitchCohorts && <div className="border-b p-4"><CohortSelect cohorts={cohorts} activeId={activeCohort?.id} onChange={id => router.push(getCohortDestination({ id }, user.role))} /></div>}
         <nav aria-label="Navegación principal" className="flex-1 space-y-1 overflow-y-auto p-3">{navigation.map(item => <NavItem key={item.id} item={item} pathname={pathname} />)}</nav>
         <div className="border-t p-4"><IdentityMenu user={user} logout={logout} selectTheme={selectTheme} /></div>
       </aside>
@@ -53,14 +54,14 @@ export default function AppShellClient({ user, cohorts, children }: { user: User
         <div className="lg:hidden"><IdentityMenu user={user} logout={logout} selectTheme={selectTheme} compact /></div>
       </header>
 
-      {mobileOpen && <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-zinc-950/60" aria-label="Cerrar navegación" onClick={() => setMobileOpen(false)} /><aside className="relative flex h-full w-[min(20rem,88vw)] flex-col border-r bg-surface shadow-md"><div className="flex items-center justify-between border-b"><Brand /><Button variant="ghost" aria-label="Cerrar navegación" onClick={() => setMobileOpen(false)}>×</Button></div>{canSwitchCohorts && <div className="border-b p-4"><CohortSelect cohorts={cohorts} activeId={activeCohort?.id} onChange={id => { setMobileOpen(false); router.push(getCohortDestination({ id })); }} /></div>}<nav aria-label="Navegación móvil" className="flex-1 space-y-1 overflow-y-auto p-3" onClick={() => setMobileOpen(false)}>{navigation.map(item => <NavItem key={item.id} item={item} pathname={pathname} />)}</nav></aside></div>}
+      {mobileOpen && <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-zinc-950/60" aria-label="Cerrar navegación" onClick={() => setMobileOpen(false)} /><aside className="relative flex h-full w-[min(20rem,88vw)] flex-col border-r bg-surface shadow-md"><div className="flex items-center justify-between border-b"><Brand /><Button variant="ghost" aria-label="Cerrar navegación" onClick={() => setMobileOpen(false)}>×</Button></div>{canSwitchCohorts && <div className="border-b p-4"><CohortSelect cohorts={cohorts} activeId={activeCohort?.id} onChange={id => { setMobileOpen(false); router.push(getCohortDestination({ id }, user.role)); }} /></div>}<nav aria-label="Navegación móvil" className="flex-1 space-y-1 overflow-y-auto p-3" onClick={() => setMobileOpen(false)}>{navigation.map(item => <NavItem key={item.id} item={item} pathname={pathname} />)}</nav></aside></div>}
 
       <div className="mx-auto w-full max-w-[var(--content-dashboard)] px-4 pt-4 lg:px-8">
         <nav aria-label="Migas de pan" className="flex flex-wrap items-center gap-2 text-xs text-muted">{breadcrumbs.map((crumb, index) => <span key={`${crumb.label}-${index}`} className="flex items-center gap-2">{index > 0 && <span aria-hidden="true">/</span>}{crumb.href ? <Link className="hover:text-foreground" href={crumb.href}>{crumb.label}</Link> : <span aria-current="page" className="text-foreground">{crumb.label}</span>}</span>)}</nav>
       </div>
-      <div className="pb-24 lg:pb-0">{children}</div>
+      <div className={focusedLearning ? "pb-0" : "pb-24 lg:pb-0"}>{children}</div>
 
-      <nav aria-label="Navegación principal móvil" className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" style={{ gridTemplateColumns: `repeat(${Math.max(mobileItems.length, 1)}, minmax(0, 1fr))` }}>{mobileItems.map(item => <Link key={item.id} href={item.href} aria-current={isNavigationItemActive(item, pathname) ? "page" : undefined} className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-sm px-1 text-[11px] font-medium text-muted", isNavigationItemActive(item, pathname) && "text-primary")}><Icon name={item.icon} /><span className="max-w-full truncate">{item.label}</span></Link>)}</nav>
+      {!focusedLearning && <nav aria-label="Navegación principal móvil" className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" style={{ gridTemplateColumns: `repeat(${Math.max(mobileItems.length, 1)}, minmax(0, 1fr))` }}>{mobileItems.map(item => <Link key={item.id} href={item.href} aria-current={isNavigationItemActive(item, pathname) ? "page" : undefined} className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-sm px-1 text-[11px] font-medium text-muted", isNavigationItemActive(item, pathname) && "text-primary")}><Icon name={item.icon} /><span className="max-w-full truncate">{item.label}</span></Link>)}</nav>}
     </div>
   </ToastProvider>;
 }

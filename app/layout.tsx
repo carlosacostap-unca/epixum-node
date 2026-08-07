@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es-AR" suppressHydrationWarning>
+    <html lang="es-AR" suppressHydrationWarning data-scroll-behavior="smooth">
       <head><script dangerouslySetInnerHTML={{ __html: `(function(){try{var p=localStorage.getItem('epixum-theme')||'system';var d=p==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):p;document.documentElement.dataset.theme=d}catch(e){document.documentElement.dataset.theme='light'}})()` }} /></head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

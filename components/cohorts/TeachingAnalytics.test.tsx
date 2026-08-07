@@ -34,8 +34,13 @@ describe("teaching analytics", () => {
   });
 
   it("exposes equivalent labeled progress in desktop and mobile representations", () => {
-    const { container } = render(<ProgressMatrix periods={[{ id: "week-1", label: "Semana 1" }]} rows={[{ id: "student-1", name: "Ana Pérez", email: "ana@example.com", cells: [{ periodId: "week-1", status: "pending", completed: 1, total: 2 }] }]} />);
+    const studentHref = "/cohorts/cohort-1/students/student-1?return=%2Fcohorts%2Fcohort-1%2Fdashboard";
+    const evidenceHref = "/cohorts/cohort-1/students/student-1?signal=period%3Aweek-1";
+    const { container } = render(<ProgressMatrix periods={[{ id: "week-1", label: "Semana 1" }]} rows={[{ id: "student-1", name: "Ana Pérez", email: "ana@example.com", href: studentHref, cells: [{ periodId: "week-1", status: "pending", completed: 1, total: 2, href: evidenceHref }] }]} />);
     expect(screen.getAllByText("Ana Pérez")).toHaveLength(2); expect(screen.getAllByText("Semana 1")).toHaveLength(2); expect(screen.getAllByText("Pendiente")).toHaveLength(2); expect(screen.getAllByText("1/2 entregas")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Ana Pérez/ })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Abrir evidencia/ })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Abrir evidencia/ })[0]).toHaveAttribute("href", evidenceHref);
     expect(container.querySelector(".max-w-full.overflow-x-auto")).toBeInTheDocument(); expect(container.querySelector(".lg\\:hidden")).toBeInTheDocument();
   });
 });

@@ -11,7 +11,14 @@ export default function LoginButton() {
   const handleLogin = async () => {
     setLoading(true); setError(""); setAccessDenied(false);
     try {
-      await pb.collection("users").authWithOAuth2({ provider: "google" });
+      await pb.collection("users").authWithOAuth2({
+        provider: "google",
+        urlCallback: (url) => {
+          const accountChooserUrl = new URL(url);
+          accountChooserUrl.searchParams.set("prompt", "select_account");
+          window.open(accountChooserUrl.toString(), "oauth2_popup", "width=500,height=600");
+        },
+      });
       document.cookie = pb.authStore.exportToCookie({ httpOnly: false });
       const response = await fetch("/api/auth/authorize", { method: "POST" }); const result = await response.json();
       if (!response.ok || !result.authorized) {

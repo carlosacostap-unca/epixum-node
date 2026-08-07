@@ -33,6 +33,29 @@ describe("LoginButton", () => {
     expect(screen.queryByRole("link", { name: "Solicitar matriculación →" })).not.toBeInTheDocument();
   });
 
+  it("asks Google to show the account chooser", async () => {
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ authorized: true, destination: "/cohorts" }),
+    });
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    render(<LoginButton />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continuar con Google" }));
+
+    expect(mocks.authWithOAuth2).toHaveBeenCalledOnce();
+    const options = mocks.authWithOAuth2.mock.calls[0][0];
+    options.urlCallback("https://accounts.google.com/o/oauth2/v2/auth?client_id=test");
+
+    expect(open).toHaveBeenCalledWith(
+      "https://accounts.google.com/o/oauth2/v2/auth?client_id=test&prompt=select_account",
+      "oauth2_popup",
+      "width=500,height=600",
+    );
+    open.mockRestore();
+  });
+
   it("offers an enrollment request when the Google account is not authorized", async () => {
     mocks.fetch.mockResolvedValue({
       ok: false,

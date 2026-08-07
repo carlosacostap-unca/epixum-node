@@ -56,7 +56,7 @@ export const COLLECTION_DEFINITIONS = {
     type: "base",
     fields: [
       { name: "cohort", type: "relation", required: true, target: "cohorts", maxSelect: 1, cascadeDelete: false },
-      { name: "number", type: "number", required: true, onlyInt: true, min: 1 },
+      { name: "number", type: "number", required: true, onlyInt: true, min: 0 },
       { name: "title", type: "text", required: true, max: 180 },
       { name: "description", type: "editor", required: false },
       { name: "startDate", type: "date", required: false },
@@ -133,6 +133,16 @@ export function materializeField(field, collectionsByName, allowPlanned = false)
     definition.collectionId = targetCollection?.id || `[planned:${target}]`;
   }
   return definition;
+}
+
+export function reconcileFieldDefinition(existing, desired, collectionsByName, allowPlanned = false) {
+  const materialized = materializeField(desired, collectionsByName, allowPlanned);
+  const changedKeys = Object.keys(materialized).filter((key) => JSON.stringify(existing[key]) !== JSON.stringify(materialized[key]));
+  return {
+    changed: changedKeys.length > 0,
+    changedKeys,
+    field: changedKeys.length > 0 ? { ...existing, ...materialized } : existing,
+  };
 }
 
 export function mergeIndexes(existing = [], additions = []) {

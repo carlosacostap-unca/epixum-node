@@ -167,13 +167,47 @@ Las reglas definitivas permiten a docentes y administradores operar en sus módu
 
 1. Inspeccionar sin escribir: `npm run schema:cohorts`.
 2. Crear el esquema de transición: `npm run schema:cohorts -- --apply`.
+   Para habilitar exclusivamente Semana 0 sobre un esquema existente sin aplicar otros cambios pendientes, usar primero `npm run schema:week-zero` y luego `npm run schema:week-zero -- --apply`; al repetir el dry-run debe informar `changed: false`.
 3. Auditar el legado: `npm run migrate:cohorts -- --legacy-slug nodejs-legacy`.
 4. Ejecutar el backfill idempotente: `npm run migrate:cohorts -- --legacy-slug nodejs-legacy --apply`.
 5. Repetir el comando sin `--apply`; debe informar cero operaciones y conservar todos los conteos.
 6. Revisar reglas finales: `npm run schema:harden`.
 7. Aplicarlas: `npm run schema:harden -- --apply` y repetir el dry-run hasta obtener `changed: false`.
 
+## Contenidos estructurados por semana
+
+El módulo de contenidos utiliza colecciones nuevas y no modifica las colecciones académicas existentes:
+
+- `content_sections`: identidad, semana, orden, estado, programación, revisión visible y procedencia.
+- `content_section_revisions`: instantáneas inmutables de bloques y requisitos; no son legibles directamente por estudiantes.
+- `content_activity_attempts`: historial append-only e idempotente de respuestas.
+- `content_section_progress`: primera y última apertura, avance, dominio y finalización por estudiante.
+- `content_assets`: imágenes o videos inmutables, subidos o externos; los archivos quedan protegidos.
+- `content_bases` y `content_base_versions`: bases de curso, semana o sección e historial inmutable.
+
+Ejecutar primero `npm run schema:content` para inspeccionar el dry-run. Aplicar solamente con `npm run schema:content -- --apply` y repetir el dry-run hasta obtener `changed: false`. Las revisiones, intentos y progreso tienen reglas API cerradas: la aplicación los accede mediante acciones de servidor después de autorizar cohorte, rol y disponibilidad.
+
 Los scripts no borran registros. El endurecimiento conserva una copia en memoria de cada colección y revierte las colecciones ya actualizadas si PocketBase rechaza alguna regla. Para rollback de aplicación, volver a desplegar la versión anterior; no se deben eliminar las nuevas relaciones ni la cohorte heredada porque ya forman parte de la resolución de datos históricos.
+
+### Importación de la Semana 1
+
+`npm run content:manifest:week1` reconstruye `content/week-01.manifest.json` desde los prototipos estáticos. Genera catorce secciones y excluye siempre `02-diagnostico-javascript`.
+
+La importación requiere destino y autor explícitos. Sin `--apply` sólo consulta y muestra el plan:
+
+```powershell
+npm run content:import:week1 -- --cohort COHORT_ID --week WEEK_ID --author ADMIN_USER_ID
+```
+
+Para aplicarlo como borradores se debe repetir el ID de semana como confirmación:
+
+```powershell
+npm run content:import:week1 -- --cohort COHORT_ID --week WEEK_ID --author ADMIN_USER_ID --apply --confirm-week WEEK_ID
+```
+
+Las claves `sourceKey` e `importKey` vuelven idempotentes las reejecuciones. El comando nunca publica la semana ni las secciones.
+
+La guía completa de despliegue, operación editorial, límites de medios, bases, restauración y rollback está en `docs/content-operations.md`.
 
 ## Alta de alumnos
 

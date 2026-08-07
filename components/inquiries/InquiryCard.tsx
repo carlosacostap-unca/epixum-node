@@ -10,7 +10,7 @@ export default function InquiryCard({ inquiry, currentUser, basePath }: { inquir
   return <Link href={href} className="group block rounded-lg focus:outline-none">
     <Card className={`h-full transition group-hover:border-primary group-hover:shadow-md ${resolved ? "opacity-80" : "border-warning/30"}`}>
       <CardContent className="flex h-full flex-col p-5">
-        <div className="flex items-start justify-between gap-3"><Badge variant={resolved ? "success" : "warning"}>{inquiry.status}</Badge><time className="text-xs text-muted" dateTime={inquiry.created}>{formatDate(inquiry.created)}</time></div>
+        <div className="flex items-start justify-between gap-3"><Badge variant={resolved ? "success" : "warning"}>{inquiry.status}</Badge><time className="text-right text-xs text-muted" dateTime={inquiry.updated || inquiry.created}>{resolved ? formatDate(inquiry.updated || inquiry.created) : waitingTime(inquiry.updated || inquiry.created)}</time></div>
         <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-primary">{context}</p>
         <h3 className="mt-2 text-lg font-bold group-hover:text-primary">{inquiry.title}</h3>
         <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">{inquiry.description}</p>
@@ -21,3 +21,4 @@ export default function InquiryCard({ inquiry, currentUser, basePath }: { inquir
 }
 
 function formatDate(value: string) { return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" }).format(new Date(value)); }
+function waitingTime(value: string) { const hours = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 3_600_000)); return hours < 24 ? `Espera ${hours} h` : `Espera ${Math.floor(hours / 24)} d`; }

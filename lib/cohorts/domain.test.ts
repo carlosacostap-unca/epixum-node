@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assertExclusiveAcademicParent, assertModeCapability, existingStudentEnrollmentInputSchema, normalizeEmail } from "./domain.ts";
+import { assertExclusiveAcademicParent, assertModeCapability, existingStudentEnrollmentInputSchema, normalizeEmail, weekInputSchema } from "./domain.ts";
 import { activeEnrollmentUserIds, academicProgressStatus, inquiryStatusCount } from "./progress.ts";
 import { cohortCacheScope } from "./cache.ts";
 import { bulkEnrollmentCandidateIds, planEnrollmentMutation } from "./enrollment.ts";
@@ -20,6 +20,13 @@ test("exige exactamente un padre académico", () => {
 test("la modalidad semanal rechaza equipos, revisiones y encuestas", () => {
   for (const capability of ["teams", "reviews", "surveys"]) assert.throws(() => assertModeCapability("weekly", capability));
   assert.doesNotThrow(() => assertModeCapability("weekly", "weeks"));
+});
+
+test("la numeración semanal admite cero y rechaza negativos o decimales", () => {
+  const validWeek = { number: "0", title: "Semana 0", description: "Preparación" };
+  assert.equal(weekInputSchema.parse(validWeek).number, 0);
+  assert.throws(() => weekInputSchema.parse({ ...validWeek, number: "-1" }));
+  assert.throws(() => weekInputSchema.parse({ ...validWeek, number: "0.5" }));
 });
 
 test("calcula progreso e indicadores de consultas por semana", () => {

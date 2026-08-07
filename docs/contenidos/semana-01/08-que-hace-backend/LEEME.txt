@@ -1,0 +1,3 @@
+¿QUÉ LUGAR OCUPA EL BACK END? - SEMANA 1
+
+Abrí index.html con un navegador moderno. La carpeta funciona sin servidor ni dependencias externas.

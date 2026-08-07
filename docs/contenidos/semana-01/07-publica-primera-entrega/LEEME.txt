@@ -1,0 +1,17 @@
+PUBLICÁ TU PRIMERA ENTREGA - SEMANA 1
+
+1. Descomprimí el ZIP.
+2. Abrí index.html con un navegador moderno.
+3. La guía funciona sin servidor. GitHub y la publicación requieren Internet.
+
+El sitio incluye bloques copiables, un generador para la URL HTTPS y un control
+final de seis puntos. La URL pegada no se guarda ni se transmite. La lista de
+control se conserva únicamente en el navegador del dispositivo.
+
+Archivos incluidos:
+
+- index.html, styles.css y script.js
+- entrega-crear-repositorio.png
+- entrega-copiar-url.png
+- entrega-publicar-terminal.png
+- entrega-repositorio-publicado.png

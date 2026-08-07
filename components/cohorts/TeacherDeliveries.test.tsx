@@ -21,10 +21,10 @@ const deliveries: Delivery[] = [{
 
 describe("teacher delivery overview", () => {
   it("shows submitted and missing students and narrows them by status", () => {
-    render(<TeacherDeliveries assignmentId="assignment-1" students={students} deliveries={deliveries} />);
+    render(<TeacherDeliveries assignmentId="assignment-1" cohortId="cohort-1" periodId="week-1" students={students} deliveries={deliveries} />);
 
     const submittedMetric = screen.getByText("Entregadas").parentElement;
-    const missingMetric = screen.getByText("Faltantes").parentElement;
+    const missingMetric = screen.getByText("Pendientes").parentElement;
     expect(submittedMetric).toHaveTextContent("1");
     expect(missingMetric).toHaveTextContent("1");
 
@@ -32,14 +32,14 @@ describe("teacher delivery overview", () => {
     expect(within(table).getByText("Ana Entregó")).toBeInTheDocument();
     expect(within(table).getByText("Bruno Pendiente")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Estado de entrega"), { target: { value: "missing" } });
+    fireEvent.change(screen.getByLabelText("Estado de entrega"), { target: { value: "pending" } });
     expect(within(table).queryByText("Ana Entregó")).not.toBeInTheDocument();
     expect(within(table).getByText("Bruno Pendiente")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("1 de 2 estudiantes");
   });
 
   it("keeps student, status, repository, date, and access in the mobile representation", () => {
-    render(<TeacherDeliveries assignmentId="assignment-1" students={students} deliveries={deliveries} />);
+    render(<TeacherDeliveries assignmentId="assignment-1" cohortId="cohort-1" periodId="week-1" students={students} deliveries={deliveries} />);
     const mobileList = screen.getByRole("list", { name: "Entregas en formato móvil" });
     const cards = within(mobileList).getAllByRole("listitem");
 
@@ -51,6 +51,13 @@ describe("teacher delivery overview", () => {
     expect(cards[1]).toHaveTextContent("Bruno Pendiente");
     expect(cards[1]).toHaveTextContent("Pendiente");
     expect(cards[1]).toHaveTextContent("Sin repositorio");
+    expect(within(cards[1]).getByRole("link", { name: "Abrir estudiante" })).toHaveAttribute("href", "/cohorts/cohort-1/students/student-2?signal=assignment%3Aassignment-1");
+  });
+
+  it("labels overdue work textually and preserves the focused student", () => {
+    render(<TeacherDeliveries assignmentId="assignment-1" cohortId="cohort-1" periodId="week-1" periodEndDate="2020-01-01" focusStudentId="student-2" students={students} deliveries={deliveries} />);
+    expect(screen.getAllByText("Vencida").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Buscar estudiante")).toHaveValue("Bruno Pendiente");
   });
 });
 

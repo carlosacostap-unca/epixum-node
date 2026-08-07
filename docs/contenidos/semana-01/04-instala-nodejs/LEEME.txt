@@ -1,0 +1,19 @@
+INSTALÁ NODE.JS - SEMANA 1
+
+Cómo usar este sitio:
+
+1. Descomprimí el archivo ZIP.
+2. Abrí index.html con cualquier navegador moderno.
+3. La lección funciona sin servidor ni instalación adicional.
+
+La descarga de Node.js requiere conexión a Internet. Todo el contenido de la
+guía y sus imágenes puede consultarse sin conexión.
+
+Archivos incluidos:
+
+- index.html: estructura y contenido de la lección.
+- styles.css: diseño visual, impresión y adaptación a pantallas pequeñas.
+- script.js: copiado, comprobación de versiones y seguimiento del avance.
+- node-descarga-lts.png
+- node-instalador-opciones.png
+- node-verificacion-terminal.png

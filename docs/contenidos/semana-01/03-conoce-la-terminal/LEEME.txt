@@ -1,0 +1,17 @@
+CONOCÉ LA TERMINAL INTEGRADA - SEMANA 1
+
+Cómo usar este sitio:
+
+1. Descomprimí el archivo ZIP.
+2. Abrí index.html con cualquier navegador moderno.
+3. No requiere conexión a Internet, instalación ni servidor.
+
+La lista de control guarda el avance únicamente en el navegador y dispositivo
+donde se abre el sitio.
+
+Archivos incluidos:
+
+- index.html: estructura y contenido de la lección.
+- styles.css: diseño visual, impresión y adaptación a pantallas pequeñas.
+- script.js: copiado de comandos y seguimiento de la lista de control.
+- terminal-vscode-anatomia-v3.png: imagen utilizada en la explicación.

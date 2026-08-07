@@ -12,6 +12,7 @@ export default async function CohortHome({ params }: { params: Promise<{ cohortI
     const cohorts = await getAccessibleCohorts(user);
     redirect(cohorts.length === 1 ? "/" : `/cohorts/${cohortId}/welcome`);
   }
+  if (user.role !== "estudiante") redirect(`/cohorts/${cohortId}/dashboard`);
 
   return <main className="container mx-auto p-8">
     <p className="text-sm uppercase tracking-wide text-blue-600">{weekly ? "Cohorte semanal" : "Cohorte por sprints"}</p>

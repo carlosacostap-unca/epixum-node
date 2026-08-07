@@ -44,9 +44,14 @@ The system SHALL present a home surface prioritized by pending work and relevant
 
 #### Scenario: Weekly cohort student home
 - **WHEN** a student whose active context is a weekly cohort opens the application home
-- **THEN** the system presents the cohort welcome experience as the home screen
-- **AND** it provides direct access to the community invitation, initial assessment, weekly content, and inquiries
+- **THEN** the system presents one primary action that opens the most relevant available week or resumes its incomplete content
+- **AND** the action identifies the week, section, and current progress when that information is available
+- **AND** community access, initial assessment, schedule, weekly content, and inquiries remain directly reachable as secondary destinations
 - **AND** legacy welcome URLs return the student to the canonical home
+
+#### Scenario: Weekly cohort without published content
+- **WHEN** a weekly cohort student has no available content section
+- **THEN** the home explains that content is not yet available and offers the published week collection without presenting a broken continuation action
 
 #### Scenario: Teacher home
 - **WHEN** a teacher opens the application home

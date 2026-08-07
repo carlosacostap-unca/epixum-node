@@ -1,0 +1,30 @@
+<!doctype html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Tu primer programa modular - Semana 1"><title>Tu primer programa modular | Semana 1</title><link rel="stylesheet" href="styles.css"><script src="script.js" defer></script></head><body><header class="top"><div class="brand"><b>N</b>Nodera</div><small>DESARROLLO BACK END CON NODE.JS <em>Semana 1</em></small></header><section class="hero"><p class="eyebrow">07 · PRÁCTICA INTEGRADORA</p><h1>Tu primer programa modular</h1><p class="lead">Construí una aplicación de consola que reciba un nombre, genere un saludo y conserve un historial en un archivo.</p></section><main><article class="lesson"><div class="content"><aside class="callout"><span>OBJETIVO</span><strong>Integrar sin copiar a ciegas</strong><p>Terminal, argumentos, módulos, archivos, asincronismo y Git aparecen en un único recorrido.</p></aside>
+      <h2>Qué vas a integrar</h2><div class="cards"><article><span>01</span><h3>Terminal</h3><p>Crear la carpeta y ejecutar Node.js.</p></article><article><span>02</span><h3>Entrada</h3><p>Leer process.argv y validar un nombre.</p></article><article><span>03</span><h3>Módulos</h3><p>Separar saludo e historial.</p></article><article><span>04</span><h3>Archivos</h3><p>Guardar registros de forma asíncrona.</p></article></div>
+      <h2>Checkpoint 1 · Espacio de trabajo</h2><div class="code"><div><span>Terminal</span><button data-copy>Copiar</button></div><pre><code>mkdir programa-modular-node
+cd programa-modular-node
+code .</code></pre><small role="status"></small></div>
+      <h2>Checkpoint 2 · Programa mínimo</h2><div class="code"><div><span>app.js</span><button data-copy>Copiar</button></div><pre><code>console.log("Programa iniciado");</code></pre><small role="status"></small></div><div class="code"><div><span>Terminal</span><button data-copy>Copiar</button></div><pre><code>node app.js</code></pre><small role="status"></small></div>
+      <h2>Checkpoint 3 · Dato de entrada</h2><div class="code"><div><span>app.js</span><button data-copy>Copiar</button></div><pre><code>const nombre = process.argv[2] ?? "estudiante";
+console.log(`Hola, ${nombre}`);</code></pre><small role="status"></small></div>
+      <h2>Checkpoint 4 · Extraé el saludo</h2><div class="two"><div class="code"><div><span>saludos.js</span><button data-copy>Copiar</button></div><pre><code>function crearSaludo(nombre) {
+  return `Hola, ${nombre}`;
+}
+module.exports = { crearSaludo };</code></pre><small role="status"></small></div> <div class="code"><div><span>app.js</span><button data-copy>Copiar</button></div><pre><code>const { crearSaludo } = require("./saludos");
+const nombre = process.argv[2] ?? "estudiante";
+console.log(crearSaludo(nombre));</code></pre><small role="status"></small></div></div>
+      <h2>Checkpoint 5 · Historial asíncrono</h2><div class="code"><div><span>historial.js</span><button data-copy>Copiar</button></div><pre><code>const { appendFile } = require("node:fs");
+function guardarSaludo(texto, callback) {
+  appendFile("historial.txt", texto + "\n", "utf8", callback);
+}
+module.exports = { guardarSaludo };</code></pre><small role="status"></small></div>
+      <h2>Checkpoint 6 · Coordinación completa</h2><div class="code"><div><span>app.js</span><button data-copy>Copiar</button></div><pre><code>const { crearSaludo } = require("./saludos");
+const { guardarSaludo } = require("./historial");
+const nombre = process.argv[2] ?? "estudiante";
+const saludo = crearSaludo(nombre);
+console.log(saludo);
+guardarSaludo(saludo, (error) =&gt; {
+  if (error) return console.error("No se pudo guardar");
+  console.log("Historial actualizado");
+});</code></pre><small role="status"></small></div>
+      <h2>Probalo como usuario</h2><ol class="route"><li>Ejecutá sin argumento.</li><li>Ejecutá con un nombre.</li><li>Repetí con otro nombre.</li><li>Abrí historial.txt.</li><li>Provocá un error controlado y leé el mensaje.</li></ol>
+      <section class="check"><header><div><span>COMPROBACIÓN</span><h2>Evidencia de finalización</h2></div><strong data-count>0/6</strong></header><div class="meter"><i></i></div><div class="checks"><label><input type="checkbox"><b>✓</b>El programa acepta un nombre desde la terminal.</label><label><input type="checkbox"><b>✓</b>app.js coordina módulos separados.</label><label><input type="checkbox"><b>✓</b>El historial se actualiza sin bloquear.</label><label><input type="checkbox"><b>✓</b>Los errores reciben un mensaje claro.</label><label><input type="checkbox"><b>✓</b>README explica cómo ejecutar.</label><label><input type="checkbox"><b>✓</b>La versión final está registrada en Git.</label></div><p data-complete>Marcá cada punto después de comprobarlo.</p></section></div></article></main><footer class="foot"><b>NODERA</b><span>Semana 1 · Tu primer programa modular</span></footer></body></html>

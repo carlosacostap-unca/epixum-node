@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Introducción práctica a la terminal integrada de Visual Studio Code." />
+    <title>Conocé la terminal integrada | Semana 1</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#inicio" aria-label="Ir al inicio">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span>Nodera</span>
+      </a>
+      <div class="course-title">
+        <span>DESARROLLO BACK END CON NODE.JS</span>
+        <strong>Semana 1</strong>
+      </div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <p class="eyebrow"><span>02.1</span> PREPARACIÓN DESDE CERO</p>
+        <div class="hero-grid">
+          <div>
+            <h1>Conocé la terminal <em>integrada</em></h1>
+            <p class="lead">
+              Visual Studio Code será nuestro centro de trabajo. Dentro del editor escribiremos
+              código y abriremos una terminal para ejecutar comandos.
+            </p>
+          </div>
+          <aside class="reassurance">
+            <span>PARA EMPEZAR</span>
+            <strong>No se espera experiencia previa.</strong>
+            <p>Aprenderemos solamente el recorrido necesario para esta cursada, una instrucción por vez.</p>
+          </aside>
+        </div>
+      </section>
+
+      <nav class="section-nav" aria-label="Contenido de la lección">
+        <a href="#primer-contacto"><span>01</span> Primer contacto</a>
+        <a href="#interaccion"><span>02</span> Leer la terminal</a>
+        <a href="#comandos"><span>03</span> Comandos</a>
+        <a href="#errores"><span>04</span> Errores</a>
+        <a href="#practica"><span>05</span> Práctica</a>
+      </nav>
+
+      <article class="lesson">
+        <section id="primer-contacto" class="content-section">
+          <div class="section-number">01</div>
+          <div class="section-body">
+            <p class="section-label">ABRÍ TU ESPACIO DE TRABAJO</p>
+            <h2>Tu primer contacto con la terminal</h2>
+            <p>
+              En Visual Studio Code elegí <strong>Terminal → New Terminal</strong>. Se abrirá un panel
+              en la parte inferior. La terminal espera instrucciones escritas llamadas comandos.
+              Escribí uno, presioná Enter y observá la respuesta antes de continuar.
+            </p>
+
+            <figure class="terminal-visual">
+              <img src="terminal-vscode-anatomia-v3.png" alt="Anatomía de una terminal: carpeta actual, símbolo de prompt y comando echo Hola." />
+              <figcaption>La terminal muestra la carpeta en la que estás y espera el próximo comando después del símbolo de prompt.</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section id="interaccion" class="content-section">
+          <div class="section-number">02</div>
+          <div class="section-body">
+            <p class="section-label">UNA CONVERSACIÓN BREVE</p>
+            <h2>Cómo leer una interacción</h2>
+            <p>
+              Primero la terminal muestra dónde estás, después escribís una instrucción y finalmente
+              devuelve una respuesta. Solo escribís el comando: el prompt y la respuesta los muestra
+              la computadora.
+            </p>
+
+            <div class="concept-grid">
+              <article>
+                <span>01</span>
+                <h3>Prompt</h3>
+                <p>Es la línea disponible para escribir. Suele incluir la carpeta actual y termina con un símbolo como <code>&gt;</code>.</p>
+              </article>
+              <article>
+                <span>02</span>
+                <h3>Comando</h3>
+                <p>Es la instrucción que escribís después del prompt. No se ejecuta hasta que presionás Enter.</p>
+              </article>
+              <article>
+                <span>03</span>
+                <h3>Respuesta</h3>
+                <p>Puede ser información, una confirmación o un error. Cuando vuelve el prompt, la terminal está lista otra vez.</p>
+              </article>
+            </div>
+
+            <div class="terminal-demo" aria-label="Ejemplo de interacción en una terminal">
+              <div class="terminal-bar"><span></span><span></span><span></span><b>TERMINAL</b></div>
+              <div class="terminal-lines">
+                <p><small>PROMPT</small><code>PS C:\Curso&gt;</code></p>
+                <p><small>COMANDO</small><code class="command">echo Hola</code></p>
+                <p><small>RESPUESTA</small><code>Hola</code></p>
+                <p><small>NUEVO PROMPT</small><code>PS C:\Curso&gt;</code><i class="cursor" aria-hidden="true"></i></p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="comandos" class="content-section">
+          <div class="section-number">03</div>
+          <div class="section-body">
+            <p class="section-label">UBICATE ANTES DE EJECUTAR</p>
+            <h2>Seis comandos esenciales</h2>
+            <p>
+              Casi todos los comandos actúan sobre la <strong>carpeta actual</strong>. Comenzá con
+              <code>pwd</code>, mirá el contenido con <code>ls</code> y recién después movete o creá
+              una carpeta. Esta costumbre evita trabajar accidentalmente en otro lugar.
+            </p>
+
+            <div class="command-table" role="table" aria-label="Comandos esenciales de terminal">
+              <div class="command-head" role="row"><span>COMANDO</span><span>PARA QUÉ SIRVE</span><span>PROBALO</span></div>
+              <div role="row"><code>pwd</code><p>Muestra en qué carpeta estás.</p><small>Confirmá tu ubicación.</small></div>
+              <div role="row"><code>ls</code><p>Lista archivos y carpetas del lugar actual.</p><small>Buscá una carpeta conocida.</small></div>
+              <div role="row"><code>cd nombre</code><p>Entra en una carpeta.</p><small>Entrá en <code>Documentos</code>.</small></div>
+              <div role="row"><code>cd ..</code><p>Vuelve a la carpeta anterior.</p><small>Regresá un nivel.</small></div>
+              <div role="row"><code>mkdir semana-1</code><p>Crea una carpeta nueva.</p><small>Creá la carpeta del trabajo.</small></div>
+              <div role="row"><code>clear</code><p>Limpia la pantalla sin borrar archivos.</p><small>Ordená la vista.</small></div>
+            </div>
+
+            <div class="guided-terminal">
+              <div>
+                <span>PRIMER RECORRIDO GUIADO</span>
+                <strong>Una línea por vez</strong>
+                <p>Esperá a que reaparezca el prompt antes de continuar.</p>
+              </div>
+              <pre><code id="guided-code">pwd
+mkdir semana-1
+cd semana-1
+code .</code></pre>
+              <button id="copy-commands" type="button">Copiar comandos</button>
+              <p id="copy-status" class="copy-status" role="status"></p>
+            </div>
+            <p class="footnote">La última instrucción abre la carpeta actual en Visual Studio Code. Si ya está abierta, podés omitirla.</p>
+          </div>
+        </section>
+
+        <section id="errores" class="content-section">
+          <div class="section-number">04</div>
+          <div class="section-body">
+            <p class="section-label">LEÉ LA EVIDENCIA</p>
+            <h2>Si algo no sale como esperabas</h2>
+            <p>Un mensaje de error no rompe la computadora. Leelo, revisá el comando y comprobá la carpeta actual antes de volver a intentarlo.</p>
+
+            <div class="error-grid">
+              <article>
+                <code>Path not found</code>
+                <h3>La carpeta no existe</h3>
+                <p>Ejecutá <code>ls</code> y copiá el nombre correcto.</p>
+              </article>
+              <article>
+                <code>not recognized</code>
+                <h3>El comando no se reconoce</h3>
+                <p>Revisá espacios y letras. Si acabás de instalar algo, reiniciá VS Code.</p>
+              </article>
+              <article>
+                <code>code .</code>
+                <h3>El acceso directo no está disponible</h3>
+                <p>Usá <strong>Archivo → Abrir carpeta</strong> y continuá.</p>
+              </article>
+            </div>
+
+            <aside class="diagnostic-rule">
+              <span>REGLA ÚTIL</span>
+              <p><strong>Mensaje → ubicación → escritura.</strong> Leé qué ocurrió, ejecutá <code>pwd</code> y <code>ls</code>, y después corregí una sola cosa.</p>
+            </aside>
+          </div>
+        </section>
+
+        <section id="practica" class="content-section practice-section">
+          <div class="section-number">05</div>
+          <div class="section-body">
+            <p class="section-label">MINI PRÁCTICA</p>
+            <h2>Comprobá lo aprendido</h2>
+            <div class="practice-card">
+              <p>Creá una carpeta llamada <code>practica-terminal</code>, entrá en ella, confirmá su ubicación con <code>pwd</code> y regresá con <code>cd ..</code>.</p>
+              <strong>Si podés explicar qué cambió entre ambos resultados de <code>pwd</code>, ya dominás el objetivo de esta pantalla.</strong>
+            </div>
+
+            <div class="checkpoint">
+              <div class="checkpoint-head">
+                <div>
+                  <span>LISTA DE CONTROL DE LA TERMINAL</span>
+                  <strong id="checkpoint-title">0 de 4 capacidades confirmadas</strong>
+                </div>
+                <div class="checkpoint-meter" aria-hidden="true"><i id="checkpoint-progress"></i></div>
+              </div>
+              <div class="checklist">
+                <label><input type="checkbox" data-check="0" /><span aria-hidden="true">✓</span>Distingo el prompt del comando.</label>
+                <label><input type="checkbox" data-check="1" /><span aria-hidden="true">✓</span>Sé esperar y leer la respuesta.</label>
+                <label><input type="checkbox" data-check="2" /><span aria-hidden="true">✓</span>Puedo consultar mi ubicación.</label>
+                <label><input type="checkbox" data-check="3" /><span aria-hidden="true">✓</span>Puedo crear y recorrer carpetas.</label>
+              </div>
+              <div id="completion" class="completion" hidden>
+                <span aria-hidden="true">✓</span>
+                <div><strong>Objetivo cumplido</strong><p>Ya tenés la base necesaria para preparar Node.js.</p></div>
+              </div>
+              <button id="reset-progress" class="reset-button" type="button">Reiniciar lista</button>
+            </div>
+          </div>
+        </section>
+      </article>
+    </main>
+
+    <footer>
+      <span>NODERA</span>
+      <p>Semana 1 · Preparación desde cero · Terminal integrada</p>
+    </footer>
+  </body>
+</html>
